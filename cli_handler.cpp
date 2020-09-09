@@ -2,6 +2,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string>
+#include <sstream>
+#include <string.h>
+#include <vector>
 using namespace std;
 
 int getcliarg(int argc, char** argv, char opt, int &out) {
@@ -33,4 +36,20 @@ int getcliarg(int argc, char** argv, char opt, int &out) {
 		}
 	}
 	return 1;
+}
+
+char** makeargv(std::string line) {
+	istringstream iss(line);
+	std::vector<std::string> argvector;
+	while (iss) {
+		std::string sub;
+		iss >> sub;
+		argvector.push_back(sub);
+	}
+	char** out = new char*[argvector.size()+1];
+	for (int i = 0; i < argvector.size(); i++) {
+		out[i] = new char[argvector[i].size()];
+		strcpy(out[i], argvector[i].c_str());
+	}
+	return out;
 }

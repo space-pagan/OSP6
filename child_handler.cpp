@@ -18,8 +18,7 @@ void forkexecandwait(char* file, char** argv) {
 		wait(NULL);
 	} else {
 		//the child
-		//int execreturn = execv(file, argv);
-		//cout << "This line should only print if exec encountered an error: " << execreturn << "\n";
-		execv(file, argv);
+		int execreturn = execv(file, argv);
+		cout << "exec failed with code: " << execreturn << "\n";
 	}
 }
