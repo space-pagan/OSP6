@@ -1,3 +1,4 @@
 *.o
 proc_fan
 testsim
+testdata

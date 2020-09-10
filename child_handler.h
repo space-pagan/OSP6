@@ -1,4 +1,6 @@
 #ifndef CHILD_HANDLER_H
 #define CHILD_HANDLER_H
-void forkexecandwait(char*, char**);
+void forkexec(char*, char**, int&);
+void updatechildcount(int&);
+void waitforanychild(int&);
 #endif

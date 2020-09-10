@@ -7,20 +7,49 @@
 
 using namespace std;
 
-void forkexecandwait(char* file, char** argv) {
-	pid_t forkpid = fork();
-	if (forkpid == -1) {
-		//no child created, errno set
-		return;
-	} else if (forkpid) {
-		//the parent
-		//cout << "Waiting on PID " << forkpid << "\n";
-		//cout << "wait returned " << wait(NULL) << "\n";
-		wait(NULL);
-	} else {
-		//the child
-		int execreturn = execv(file, argv);
-		cout << "exec failed with code: " << execreturn << "\n";
-		exit(execreturn);
+void forkexec(char* file, char** argv, int& pr_count) {
+	switch(fork()) {
+		case -1:
+			cout << "fork call failed\n";
+			perror("proc_fan: Error");
+			exit(-1);
+		case 0:
+			{	
+				int execerr = execvp(file, argv);
+				cout << "exec call failed\n";
+				perror("proc_fan: Error");
+				exit(-1);
+			}
+		default:
+			pr_count++;
+			return;
+	}
+}
+
+void updatechildcount(int& pr_count) {
+	int status;
+	switch(waitpid(-1, &status, WNOHANG)) {
+		case -1:
+			cout << "wait call failed\n";
+			perror("proc_fan: Error");
+			exit(-1);
+		case 0:
+			return;
+		default:
+			pr_count--;
+			return;
+	}
+}
+
+void waitforanychild(int& pr_count) {
+	int status;
+	switch(waitpid(-1, &status, 0)) {
+		case -1:
+			cout << "wait call failed\n";
+			perror("proc_fan: Error");
+			exit(-1);
+		default:
+			pr_count--;
+			return;
 	}
 }
