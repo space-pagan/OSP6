@@ -38,7 +38,7 @@ int getcliarg(int argc, char** argv, char opt, int &out) {
 	return 1;
 }
 
-char** makeargv(std::string line) {
+char** makeargv(std::string line, int& size) {
 	istringstream iss(line);
 	std::vector<std::string> argvector;
 	while (iss) {
@@ -46,10 +46,12 @@ char** makeargv(std::string line) {
 		iss >> sub;
 		argvector.push_back(sub);
 	}
-	char** out = new char*[argvector.size()+1];
-	for (int i = 0; i < argvector.size(); i++) {
+	char** out = new char*[argvector.size()];
+	for (int i = 0; i < argvector.size()-1; i++) {
 		out[i] = new char[argvector[i].size()];
 		strcpy(out[i], argvector[i].c_str());
 	}
+	size = argvector.size();
+	out[size-1] = NULL;
 	return out;
 }

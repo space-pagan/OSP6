@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <stdlib.h>
+#include <stdio.h>
 
 using namespace std;
 
@@ -20,5 +21,6 @@ void forkexecandwait(char* file, char** argv) {
 		//the child
 		int execreturn = execv(file, argv);
 		cout << "exec failed with code: " << execreturn << "\n";
+		exit(execreturn);
 	}
 }

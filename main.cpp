@@ -6,8 +6,7 @@
 
 using namespace std;
 
-char** parseinput(std::string line);
-void freestrarray(char** array);
+void freestrarray(char**, int);
 
 int main(int argc, char **argv) {
 	int pr_limit;
@@ -19,15 +18,15 @@ int main(int argc, char **argv) {
 	std::string line;
 	char** targs;
 	while (std::getline(std::cin, line)) {
-		targs = makeargv(line);
+		int size;
+		targs = makeargv(line, size);
 		forkexecandwait(targs[0], targs);
-		//freestrarray(targs);
+		freestrarray(targs, size);
 	}
 }
 
-void freestrarray(char** array) {
-	int rowsize = sizeof(array) / sizeof(array[0]);
-	for (int x = 0; x < rowsize; x++) {
+void freestrarray(char** array, int size) {
+	for (int x = 0; x < size; x++) {
 		delete[] array[x];
 	}
 	delete[] array;

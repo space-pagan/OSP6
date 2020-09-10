@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-I -Wall -std=c++11 -Wno-write-strings
+CFLAGS=-I -Wall -std=c++11 -g
 DEPS = cli_handler.h child_handler.h
 OBJ = main.o cli_handler.o child_handler.o
 

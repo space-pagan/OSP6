@@ -6,6 +6,6 @@ int main(int argc, char *argv[]) {
 	for (; i < argc-1; i++) {
 		cout << argv[i] << " ";
 	}
-	cout << argv[i] << "\n";
+	cout << argv[i] << ": " << argc << " arguments\n";
 	return 0;
 }
