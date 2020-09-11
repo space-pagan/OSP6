@@ -1,41 +1,36 @@
-#include <iostream>
-#include <unistd.h>
-#include <stdio.h>
-#include <string>
-#include <sstream>
-#include <string.h>
-#include <vector>
+#include "cli_handler.h"
+
 using namespace std;
 
 int getcliarg(int argc, char** argv, char opt, int &out) {
 	int c;
-	int arg;
+	char optstr[4] = {':', opt, ':', '\0'};
 	opterr = 0;
-	char optstr[2];
-	sprintf(optstr, "%c:", opt);
 
-	if (argc == 1) {
+	c = getopt(argc, argv, optstr);
+	if (c == opt) {
+		out = stoi(optarg);
+		return 0;
+	} else if (c == ':') {
+		cout << "Option -" << opt << " requires an argument.\n";
+	} else if (c == -1) {
 		cout << argv[0] << " requires the option -" << opt;
 		cout << " followed by an argument in order to run!\n";
-		return 1;
+	} else {
+		cout << "Unknown option -" << (char)optopt << ".\n";
 	}
 
-	while ((c = getopt(argc, argv, optstr)) != -1) {
-		if (c == opt) {
-			out = stoi(optarg);
-			return 0;
-		} else if (c == '?') {
-			if (optopt == opt) {
-				cout << "Option -" << opt << " requires an argument.\n";
-			} else {
-				cout << "Unknown option -" << (char)optopt << ".\n";
-			}
-			return 1;
-		} else {
-			return 1;
-		}
-	}
 	return 1;
+}
+
+bool hascliflag(int argc, char** argv, char opt) {
+	int c;
+	char optstr[2] = {opt, '\0'};
+	opterr = 0;
+
+	c = getopt(argc, argv, optstr);
+	if (c == opt) return 1;
+	return 0;
 }
 
 char** makeargv(std::string line, int& size) {
