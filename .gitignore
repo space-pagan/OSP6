@@ -1,5 +1,6 @@
 *.o
 proc_fan
 testsim
+testsim2
 testdata
 *.swp
