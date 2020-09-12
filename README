@@ -1,0 +1,41 @@
+Author: Zoya Samsonov
+Date: September 11, 2020
+
+Compilation:
+	The Makefile for this project generates three executables:
+		proc_fan
+		testsim
+		testsim2
+	
+	The default recipe 'make' will compile all three. If compilation of the
+	test executables is not desired, use 'make proc_fan' instead.
+
+Running the program:
+	proc_fan -n PRLIMIT
+
+	PRLIMIT must be an integer >= 1 for proc_fan to read any input from stdin
+		setting PRLIMIT < 1 will result in proc_fan exiting immediately.
+
+Version Control:
+	This project's version control has been managed under git. For a log of
+	modifications, use 'git log', and its various options.
+
+Outstanding Problems:
+	None, to my knowledge.
+
+Encountered Difficulties:
+	This project was really rather straight-forward. The only issue that I
+	encountered was in tokenizing the line read from stdin, since I'm used to
+	many higher-level languages having some kind of .split() function in
+	strings. Additionally, I initially misread the definition of execvp()
+	and was working under the impression that char** argv was required to
+	have a tail element of "\0", when in reality it must have a tail element
+	of nullptr. This led to some segfaulting and unexpected behaviour, but
+	has been fixed and seems to run without any issues.
+
+Bugtesting efforts:
+	Manual input from terminal
+	File read into stdin
+	Multiple test programs (testsim, testsim2) with varied behaviour
+
+	Everything appears to work without issue.

@@ -23,6 +23,12 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
+	if (pr_limit < 1) {
+		// the 'while (pr_count >= pr_limit) statement below cannot ever
+		// terminate if pr_limit is less than one, so we force-quit early.
+		return 0;
+	}
+
 	std::string line;
 	int child_argc;
 	char** child_argv;
