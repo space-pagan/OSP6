@@ -1,5 +1,5 @@
 /* Author: Zoya Samsonov
- * Date: Semptember 11, 2020
+ * Date: Semptember 28, 2020
  */
 
 #include <iostream>
@@ -8,22 +8,32 @@
 #include "child_handler.h"
 #include "error_handler.h"
 
-void freestrarray(char**, int);
-
 int main(int argc, char **argv) {
-	int pr_limit;
-	int pr_count = 0;
+	int max;
+	int conc;
+	int max_time;
+	int max_count = 0;
+	int conc_count = 0;
+	int args[3] = {4, 2, 100}; // defaults for max, conc, max_time
 
 	// set perror to display the correct program name
 	setupprefix(argv[0]);
 
-	if (getcliarg(argc, argv, 'n', pr_limit)) {
-		// get value of option -n as pr_limit or exit if 
-		// the option is poorly formated or not present.
+	if (getcliarg(argc, argv, "nst", args) != 0) {
+		// if -1 is returned, argument parsing failed, quit.
 		return -1;
 	}
+	max = args[0];
+	conc = std::min(args[1], 20);
+	max_time = args[2];
+	char* infile = argv[argc-1];
 
-	if (pr_limit < 1) {
+	std::cout << "Maximum Processes:  " << max << "\n";
+	std::cout << "Maximum Concurrent: " << conc << "\n";
+	std::cout << "Maximum Run-time:   " << max_time << "\n";
+	return 0;
+
+	/*if (pr_limit < 1) {
 		// the 'while (pr_count >= pr_limit) statement below cannot ever
 		// terminate if pr_limit is less than one, so we force-quit early.
 		return 0;
@@ -54,7 +64,7 @@ int main(int argc, char **argv) {
 	// remaining children to terminate
 	while (pr_count > 0) {
 		waitforanychild(pr_count);
-	}
+	}*/
 }
 
 void freestrarray(char** array, int size) {

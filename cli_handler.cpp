@@ -4,34 +4,39 @@
 
 #include "cli_handler.h"
 
-int getcliarg(int argc, char** argv, char opt, int &out) {
-	// Searches argv for a single option 'opt' and stores its argument
-	// if opt is not found or is missing the argument, return 1. Otherwise
-	// return 0
+int getcliarg(int argc, char** argv, const char* options, int* out) {
+	// Searches argv for options and stores argument
+	// if any arguments are not present or unknown flags are used,
+	// returns -1 to tell main() to quit. Otherwise returns 0;
+	char* optstr = new char[strlen(options) * 2 + 1];
+	optstr[0] = ':';
+	int i = 1;
+	for (int j = 0; j < strlen(options); j++) {
+		optstr[i++] = options[j];
+		optstr[i++] = ':';
+	}
 	int c;
-	// getopt( , , ":opt:") searches for -opt arg, and returns ':' 
-	// if opt is present but arg is not
-	char optstr[4] = {':', opt, ':', '\0'}; 
 	opterr = 0;  // disable getopt printing error messages
 
-	c = getopt(argc, argv, optstr);
-	if (c == opt) {
-		// -opt arg was found in argv. Convert arg to an int and store in 'out'
-		out = std::stoi(optarg);
-		return 0;
-	} else if (c == ':') {
-		// -opt is present with no argument. return 1.
-		std::cout << "Option -" << opt << " requires an argument.\n";
-	} else if (c == -1) {
-		// -opt is not present. return 1
-		std::cout << argv[0] << " requires the option -" << opt;
-		std::cout << " followed by an argument in order to run!\n";
-	} else {
-		// getopt returned some other character. return 1
-		std::cout << "Unknown option -" << (char)optopt << ".\n";
+	while ((c = getopt (argc, argv, optstr)) != -1) {
+		int optindex = -1;
+		if (c == '?') {
+			std::cerr << "Unknown argument '-" << char(optopt) << "'\n";
+			return -1;
+		}
+		if (c == ':') {
+			std::cerr << "Option '-" << char(optopt) << "' requires an argument!\n";
+			return -1;
+		}
+		for (int j = 0; j < strlen(options); j++) {
+			if (c == options[j]) {
+				optindex = j;
+				break;
+			}
+		}
+		out[optindex] = std::stoi(optarg);
 	}
-
-	return 1;
+	return 0;
 }
 
 bool hascliflag(int argc, char** argv, char opt) {

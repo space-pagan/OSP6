@@ -8,7 +8,7 @@
 #include <string.h>
 #include <vector>
 
-int getcliarg(int, char**, char, int&);
+int getcliarg(int, char**, const char*, int*);
 bool hascliflag(int, char**, char);
 char** makeargv(std::string, int&);
 #endif

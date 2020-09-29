@@ -2,17 +2,14 @@ CC=g++
 CFLAGS=-I -Wall -std=c++11 -g
 DEPS = cli_handler.h child_handler.h error_handler.h
 OBJ = main.o cli_handler.o child_handler.o error_handler.o
-EXECUTABLES = proc_fan testsim testsim2
+EXECUTABLES = master palin 
 
-project1: $(EXECUTABLES)
+project2: $(EXECUTABLES)
 
-proc_fan: $(OBJ) 
+master: $(OBJ) 
 	$(CC) -o $@ $^ $(CFLAGS)
 
-testsim: testsim.o
-	$(CC) -o $@ $^ $(CFLAGS)
-
-testsim2: testsim2.o
+palin: palin.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 %.o: %.cpp $(DEPS)
