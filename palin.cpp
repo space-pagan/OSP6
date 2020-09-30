@@ -9,17 +9,21 @@
 #include <stdlib.h>
 #include <chrono>
 #include <ctime>
+#include "shm_handler.h"
+#include "error_handler.h"
 
 bool testPalindrome(char* testString);
 char* sanitizeStr(char* testString);
 char* getCurrentCTime();
 
 int main(int argc, char **argv) {
-	// int id = std::stoi(argv[2]);
+	setupprefix(argv[0]);
 	srand(getpid());
 
-	bool isPalindrome = testPalindrome(sanitizeStr(argv[1]));
-	std::cout << argv[1] << " is ";
+	char* testStr = (char*)shmlookup(std::stoi(argv[1]));
+
+	bool isPalindrome = testPalindrome(sanitizeStr(testStr));
+	std::cout << testStr << " is ";
 	if (!isPalindrome) {
 		std::cout << "not ";
 	}
@@ -37,6 +41,9 @@ int main(int argc, char **argv) {
 	// exit critical section
 	std::cerr << "Left critical section at:      ";
 	std::cerr << getCurrentCTime() << "\n";
+
+	shmdetach(testStr);
+
 	return 0;
 }
 

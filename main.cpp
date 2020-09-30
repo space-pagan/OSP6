@@ -1,4 +1,4 @@
-/* Author: Zoya Samsonov
+  /* Author: Zoya Samsonov
  * Date: Semptember 28, 2020
  */
 
@@ -6,9 +6,11 @@
 #include <string>
 #include <unistd.h>
 #include <csignal>
+#include <stdio.h>
 #include "cli_handler.h"
 #include "child_handler.h"
 #include "error_handler.h"
+#include "shm_handler.h"
 
 void printhelp(const char* progname);
 
@@ -60,11 +62,15 @@ int main(int argc, char **argv) {
 	signal(SIGALRM, signalhandler);
 	alarm(max_time);
 
-	std::cout << "Maximum Processes:  " << max << "\n";
-	std::cout << "Maximum Concurrent: " << conc << "\n";
-	std::cout << "Maximum Run-time:   " << max_time << "\n";
-	std::cout << "INFILE:             " << infile << "\n";
-	while (true);
+	/* // SHM TEST, tested 9/30
+	char* str = (char*)shmcreate(14, 0);
+	sprintf(str, "racecar");
+	int size;
+	char** child_argv = makeargv("palin 0", size);
+	forkexec(child_argv[0], child_argv, conc_count);
+	waitforanychild(conc_count);
+	shmdetach(str);
+	shmdestroy(0); */  
 	return 0;
 
 	/*if (pr_limit < 1) {

@@ -63,17 +63,6 @@ char* getoptstr(const char* options, const char* flags) {
 	return optstr;
 }
 
-bool hascliflag(int argc, char** argv, char opt) {
-	// Searches argv for the flag 'opt', returning 1 if found or 0 if not.
-	// This function is not used for Project 1, but was easy to write and may
-	// be useful for future projects
-	char optstr[2] = {opt, '\0'};
-	opterr = 0;
-
-	if (opt == getopt(argc, argv, optstr)) return 1;
-	return 0;
-}
-
 char** makeargv(std::string line, int& size) {
 	// tokenizes an std::string on whitespace and converts it to char**
 	// with the last element being a nullptr. Saves the column size to 'size'
