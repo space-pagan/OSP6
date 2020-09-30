@@ -11,8 +11,7 @@
 #include "child_handler.h"
 #include "error_handler.h"
 #include "shm_handler.h"
-
-void printhelp(const char* progname);
+#include "file_handler.h"
 
 void signalhandler(int signum) {
 	if (signum == SIGALRM) {
@@ -22,9 +21,27 @@ void signalhandler(int signum) {
 	}
 }
 
+void printhelp(const char* progname) {
+	std::cout << "\n" << progname << " [OPTIONS] FILE\n";
+	std::cout << "Sort strings in FILE as palindromes or not and";
+	std::cout << " write to palin.out / nopalin.out\n";
+	std::cout << "\nOPTIONS:";
+	std::cout << "\n  -n #\tSet the maximum number of strings to test from";
+	std::cout << " the file\n\t(Default: 4)";
+	std::cout << "\n  -s #\tSet the maximum number of concurrent processes";
+	std::cout << "\n\t(Default: 2)";
+	std::cout << "\n  -t #\tSet the timeout period in seconds. After this";
+	std::cout << " time has elapsed, " << progname << " will terminate";
+	std::cout << "\n\t(Default: 100)";
+	std::cout << "\n  -h  \tPrints this message\n";
+}
+
 int main(int argc, char **argv) {
 	// register SIGINT (^C) with signal handler
 	signal(SIGINT, signalhandler);
+
+	// set perror to display the correct program name
+	setupprefix(argv[0]);
 
 	// local variables
 	int max;
@@ -32,14 +49,12 @@ int main(int argc, char **argv) {
 	int max_time;
 	int max_count = 0;
 	int conc_count = 0;
-	int args[3] = {4, 2, 100}; // defaults for max, conc, max_time
+	char* infile;
+	int opts[3] = {4, 2, 100}; // defaults for max, conc, max_time
 	bool flags[1] = {false}; // only -h flag for this program
 
-	// set perror to display the correct program name
-	setupprefix(argv[0]);
-
 	// parse runtime arguments
-	int optind = getcliarg(argc, argv, "nst", "h", args, flags);
+	int optind = getcliarg(argc, argv, "nst", "h", opts, flags);
 	
 	// print help message and quit
 	if (flags[0]) {
@@ -48,19 +63,29 @@ int main(int argc, char **argv) {
 	}
 
 	// save parsed arguments to separate variables for easier access
-	max = args[0];
-	conc = std::min(args[1], 20); // do not allow > 20 concurrent children
-	max_time = args[2];
-	char* infile;
 	if (argc > optind) {
 		infile = argv[argc-1];
 	} else {
 		customerrorquit("FILE is required!");
 	}
-
+	max = opts[0];
+	if (max < 1) {
+		customerrorquit("option -n must be an integer greater than 0");
+	}
+	conc = std::min(opts[1], 20); // do not allow > 20 concurrent children
+	if (conc < 1) {
+		customerrorquit("option -s must be an integer greater than 0");
+	} else if (conc < opts[1]) {
+		std::cout << "This system does not allow more than 20 concurrent";
+		std::cout << " processes. Option -s has been set to 20.\n";
+	}
+	max_time = opts[2];
+	if (max_time < 1) {
+		customerrorquit("option -t must be an integer greater than 0");
+	}
 	// set up kill timer
-	signal(SIGALRM, signalhandler);
-	alarm(max_time);
+	// signal(SIGALRM, signalhandler);
+	// alarm(max_time);
 
 	/* // SHM TEST, tested 9/30
 	char* str = (char*)shmcreate(14, 0);
@@ -71,15 +96,14 @@ int main(int argc, char **argv) {
 	waitforanychild(conc_count);
 	shmdetach(str);
 	shmdestroy(0); */  
+
+	int size, numlines;
+	char** lines = getfilelines(infile, size, numlines);
+	std::cout << "Read " << numlines << " lines (" << size << " Bytes)\n";
+
 	return 0;
 
-	/*if (pr_limit < 1) {
-		// the 'while (pr_count >= pr_limit) statement below cannot ever
-		// terminate if pr_limit is less than one, so we force-quit early.
-		return 0;
-	}
-
-	std::string line;
+	/*std::string line;
 	int child_argc;
 	char** child_argv;
 	while (std::getline(std::cin, line)) {
@@ -105,19 +129,4 @@ int main(int argc, char **argv) {
 	while (pr_count > 0) {
 		waitforanychild(pr_count);
 	}*/
-}
-
-void printhelp(const char* progname) {
-	std::cout << "\n" << progname << " [OPTIONS] FILE\n";
-	std::cout << "Sort strings in FILE as palindromes or not and";
-	std::cout << " write to palin.out / nopalin.out\n";
-	std::cout << "\nOPTIONS:";
-	std::cout << "\n  -n #\tSet the maximum number of strings to test from";
-	std::cout << " the file\n\t(Default: 4)";
-	std::cout << "\n  -s #\tSet the maximum number of concurrent processes";
-	std::cout << "\n\t(Default: 2)";
-	std::cout << "\n  -t #\tSet the timeout period in seconds. After this";
-	std::cout << " time has elapsed, " << progname << " will terminate";
-	std::cout << "\n\t(Default: 100)";
-	std::cout << "\n  -h  \tPrints this message\n";
 }
