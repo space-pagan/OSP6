@@ -4,33 +4,67 @@
 
 #include <iostream>
 #include <string>
+#include <unistd.h>
+#include <csignal>
 #include "cli_handler.h"
 #include "child_handler.h"
 #include "error_handler.h"
 
+void printhelp(const char* progname);
+
+void signalhandler(int signum) {
+	if (signum == SIGALRM) {
+		customerrorquit("SIGALRM received!");
+	} else if (signum == SIGINT) {
+		customerrorquit("SIGINT received!");
+	}
+}
+
 int main(int argc, char **argv) {
+	// register SIGINT (^C) with signal handler
+	signal(SIGINT, signalhandler);
+
+	// local variables
 	int max;
 	int conc;
 	int max_time;
 	int max_count = 0;
 	int conc_count = 0;
 	int args[3] = {4, 2, 100}; // defaults for max, conc, max_time
+	bool flags[1] = {false}; // only -h flag for this program
 
 	// set perror to display the correct program name
 	setupprefix(argv[0]);
 
-	if (getcliarg(argc, argv, "nst", args) != 0) {
-		// if -1 is returned, argument parsing failed, quit.
-		return -1;
+	// parse runtime arguments
+	int optind = getcliarg(argc, argv, "nst", "h", args, flags);
+	
+	// print help message and quit
+	if (flags[0]) {
+		printhelp(argv[0]);
+		return 0;
 	}
+
+	// save parsed arguments to separate variables for easier access
 	max = args[0];
-	conc = std::min(args[1], 20);
+	conc = std::min(args[1], 20); // do not allow > 20 concurrent children
 	max_time = args[2];
-	char* infile = argv[argc-1];
+	char* infile;
+	if (argc > optind) {
+		infile = argv[argc-1];
+	} else {
+		customerrorquit("FILE is required!");
+	}
+
+	// set up kill timer
+	signal(SIGALRM, signalhandler);
+	alarm(max_time);
 
 	std::cout << "Maximum Processes:  " << max << "\n";
 	std::cout << "Maximum Concurrent: " << conc << "\n";
 	std::cout << "Maximum Run-time:   " << max_time << "\n";
+	std::cout << "INFILE:             " << infile << "\n";
+	while (true);
 	return 0;
 
 	/*if (pr_limit < 1) {
@@ -67,11 +101,17 @@ int main(int argc, char **argv) {
 	}*/
 }
 
-void freestrarray(char** array, int size) {
-	// frees memory of a 2d array created with nested new[] calls
-	// size represents the number of "columns"
-	for (int x = 0; x < size; x++) {
-		delete[] array[x];
-	}
-	delete[] array;
+void printhelp(const char* progname) {
+	std::cout << "\n" << progname << " [OPTIONS] FILE\n";
+	std::cout << "Sort strings in FILE as palindromes or not and";
+	std::cout << " write to palin.out / nopalin.out\n";
+	std::cout << "\nOPTIONS:";
+	std::cout << "\n  -n #\tSet the maximum number of strings to test from";
+	std::cout << " the file\n\t(Default: 4)";
+	std::cout << "\n  -s #\tSet the maximum number of concurrent processes";
+	std::cout << "\n\t(Default: 2)";
+	std::cout << "\n  -t #\tSet the timeout period in seconds. After this";
+	std::cout << " time has elapsed, " << progname << " will terminate";
+	std::cout << "\n\t(Default: 100)";
+	std::cout << "\n  -h  \tPrints this message\n";
 }

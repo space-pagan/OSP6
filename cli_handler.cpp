@@ -4,39 +4,63 @@
 
 #include "cli_handler.h"
 
-int getcliarg(int argc, char** argv, const char* options, int* out) {
+char* getoptstr(const char* options, const char* flags);
+
+int getcliarg(int argc, char** argv, const char* options, \
+		const char* flags, int* out, bool* flagout) {
 	// Searches argv for options and stores argument
 	// if any arguments are not present or unknown flags are used,
 	// returns -1 to tell main() to quit. Otherwise returns 0;
-	char* optstr = new char[strlen(options) * 2 + 1];
+	char* optstr = getoptstr(options, flags);
+	char errstr[256];
+	int c;
+	opterr = 0;  // disable getopt printing error messages
+
+	while ((c = getopt (argc, argv, optstr)) != -1) {
+		if (c == '?') {
+			sprintf(errstr, "Unknown argument '-%c'", optopt);
+			customerrorquit(errstr);
+		}
+		if (c == ':') {
+			sprintf(errstr, "Option '-%c' requires an argument!", optopt);
+			customerrorquit(errstr);
+		}
+		// check if the matched item is an argument
+		int optindex = -1;
+		for (int j = 0; j < strlen(options); j++) {
+			if (c == options[j]) {
+				optindex = j;
+				out[optindex] = std::stoi(optarg);
+				break;
+			}
+		}
+		if (optindex == -1) {
+			// must be a flag
+			for (int j = 0; j < strlen(flags); j++) {
+				if (c == flags[j]) {
+					flagout[j] = true;
+					break;
+				}
+			}
+		}
+	}
+	return optind;
+}
+
+char* getoptstr(const char* options, const char* flags) {
+	int optlen = strlen(options);
+	int flglen = strlen(flags);
+	char* optstr = new char[optlen * 2 + flglen + 1];
 	optstr[0] = ':';
 	int i = 1;
 	for (int j = 0; j < strlen(options); j++) {
 		optstr[i++] = options[j];
 		optstr[i++] = ':';
 	}
-	int c;
-	opterr = 0;  // disable getopt printing error messages
-
-	while ((c = getopt (argc, argv, optstr)) != -1) {
-		int optindex = -1;
-		if (c == '?') {
-			std::cerr << "Unknown argument '-" << char(optopt) << "'\n";
-			return -1;
-		}
-		if (c == ':') {
-			std::cerr << "Option '-" << char(optopt) << "' requires an argument!\n";
-			return -1;
-		}
-		for (int j = 0; j < strlen(options); j++) {
-			if (c == options[j]) {
-				optindex = j;
-				break;
-			}
-		}
-		out[optindex] = std::stoi(optarg);
+	for (int j = 0; j < strlen(flags); j++) {
+		optstr[i++] = flags[j];
 	}
-	return 0;
+	return optstr;
 }
 
 bool hascliflag(int argc, char** argv, char opt) {

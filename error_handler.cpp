@@ -22,3 +22,11 @@ void perrandquit() {
 	perror(prefix.c_str());
 	exit(0);
 }
+
+void customerrorquit(const char* error) {
+	// print a custom error message in the format
+	// argv[0]: Error: custom message
+	// then, terminate the program
+	std::cerr << prefix << ": " << error << "\n";
+	exit(0);
+}
