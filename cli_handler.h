@@ -5,11 +5,12 @@
 #include <sstream>
 #include <unistd.h>
 #include <string>
-#include <string.h>
+#include <cstring>
 #include <vector>
 #include "error_handler.h"
 
 int getcliarg(int, char**, const char*, const char*, int*, bool*);
 bool hascliflag(int, char**, char);
 char** makeargv(std::string, int&);
+void freeargv(char**, int);
 #endif

@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <string>
+#include <cstring>
 #include <unistd.h>
 #include <csignal>
 #include <stdio.h>
@@ -11,7 +12,6 @@
 #include "child_handler.h"
 #include "error_handler.h"
 #include "shm_handler.h"
-#include "file_handler.h"
 
 void signalhandler(int signum) {
 	if (signum == SIGALRM) {
@@ -87,46 +87,32 @@ int main(int argc, char **argv) {
 	// signal(SIGALRM, signalhandler);
 	// alarm(max_time);
 
-	/* // SHM TEST, tested 9/30
-	char* str = (char*)shmcreate(14, 0);
-	sprintf(str, "racecar");
-	int size;
-	char** child_argv = makeargv("palin 0", size);
-	forkexec(child_argv[0], child_argv, conc_count);
-	waitforanychild(conc_count);
-	shmdetach(str);
-	shmdestroy(0); */  
-
-	int size, numlines;
-	char** lines = getfilelines(infile, size, numlines);
-	std::cout << "Read " << numlines << " lines (" << size << " Bytes)\n";
-
-	return 0;
-
-	/*std::string line;
+	// SHM TEST, tested 9/30
+	int startid = 0;
+	int currid = 0;
 	int child_argc;
 	char** child_argv;
-	while (std::getline(std::cin, line)) {
-		// while there is a line to read on stdin, tokenize it and store in
-		// child_argv. The number of tokens + 1 (for the NULL pointer) is
-		// stored in child_argc, and is used to free the array later.
-		child_argv = makeargv(line, child_argc);
-		while (pr_count >= pr_limit) {
-			// if the maximum concurrent number of children are running
-			// do not create any more until pr_count falls below pr_limit
-			waitforanychild(pr_count);
+	shmfromfile(infile, currid, max);
+
+	while (max_count < max) {
+		while (conc_count >= conc) {
+			waitforanychild(conc_count);
 		}
-		// fork and exec a child
-		forkexec(child_argv[0], child_argv, pr_count);
-		// check if any children have exited and update the counter
-		updatechildcount(pr_count);
-		// free the child_argv array
-		freestrarray(child_argv, child_argc);
+		char cmd[16];
+		sprintf(cmd, "palin %d", startid+max_count);
+		child_argv = makeargv(cmd, child_argc);
+		forkexec(child_argv[0], child_argv, conc_count);
+		max_count++;
+		updatechildcount(conc_count);
+		freeargv(child_argv, child_argc);
+	}
+	// reached maximum total children. Wait for all remaining to quit
+	while (conc_count > 0) {
+		waitforanychild(conc_count);
 	}
 
-	// EOF read on stdin, do not create any more children, wait for
-	// remaining children to terminate
-	while (pr_count > 0) {
-		waitforanychild(pr_count);
-	}*/
+	for (int i = startid; i < currid; i++) {
+		shmdestroy(i);
+	}
+	return 0;
 }

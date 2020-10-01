@@ -89,3 +89,10 @@ char** makeargv(std::string line, int& size) {
 	out[size-1] = nullptr;
 	return out;
 }
+
+void freeargv(char** argv, int size) {
+	for (int x = 0; x < size; x++) {
+		delete[] argv[x];
+	}
+	delete[] argv;
+}

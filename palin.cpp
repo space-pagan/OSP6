@@ -20,7 +20,8 @@ int main(int argc, char **argv) {
 	setupprefix(argv[0]);
 	srand(getpid());
 
-	char* testStr = (char*)shmlookup(std::stoi(argv[1]));
+	int id = std::stoi(argv[1]);
+	char* testStr = (char*)shmlookup(id);
 
 	bool isPalindrome = testPalindrome(sanitizeStr(testStr));
 	std::cout << testStr << " is ";

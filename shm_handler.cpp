@@ -38,3 +38,17 @@ void shmdestroy(int id) {
 	int ctl = shmctl(shmlookupid(id), IPC_RMID, NULL);
 	if (ctl == -1) perrandquit();
 }
+
+void shmfromfile(const char* filename, int& id, int& maxlines) {
+	std::ifstream file(filename);
+	std::string line;
+	int linecount = 0;
+	while ((std::getline(file, line)) && (linecount++ < maxlines)) {
+		char* shmstr = (char*)shmcreate(line.size(), id++);
+		strcpy(shmstr, line.c_str());
+		shmdetach(shmstr);
+	}
+	// if the number of lines in the file < -n argument, reset to prevent
+	// attempting to access shared memory that doesn't exist
+	maxlines = linecount;
+}
