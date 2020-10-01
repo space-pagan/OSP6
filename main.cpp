@@ -87,7 +87,6 @@ int main(int argc, char **argv) {
 	// signal(SIGALRM, signalhandler);
 	// alarm(max_time);
 
-	// SHM TEST, tested 9/30
 	int startid = 0;
 	int currid = 0;
 	int child_argc;

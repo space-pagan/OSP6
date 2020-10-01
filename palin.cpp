@@ -3,7 +3,7 @@
  */
 
 #include <iostream>
-#include <string.h>
+#include <cstring>
 #include <string>
 #include <unistd.h>
 #include <stdlib.h>
@@ -17,7 +17,9 @@ char* sanitizeStr(char* testString);
 char* getCurrentCTime();
 
 int main(int argc, char **argv) {
-	setupprefix(argv[0]);
+	char prefix[strlen(argv[0]) + strlen(argv[1])];
+	sprintf(prefix, "%s%s", argv[0], argv[1]);
+	setupprefix(prefix);
 	srand(getpid());
 
 	int id = std::stoi(argv[1]);

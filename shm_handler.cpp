@@ -44,11 +44,16 @@ void shmfromfile(const char* filename, int& id, int& maxlines) {
 	std::string line;
 	int linecount = 0;
 	while ((std::getline(file, line)) && (linecount++ < maxlines)) {
+		if (line.size() == 0) {
+			linecount--;
+			continue;
+		}
 		char* shmstr = (char*)shmcreate(line.size(), id++);
 		strcpy(shmstr, line.c_str());
 		shmdetach(shmstr);
 	}
 	// if the number of lines in the file < -n argument, reset to prevent
 	// attempting to access shared memory that doesn't exist
-	maxlines = linecount;
+	if (line.size() == 0) linecount++;
+	maxlines = --linecount;
 }
