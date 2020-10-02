@@ -2,7 +2,9 @@
  * Date: September 11, 2020
  */
 
-#include "error_handler.h"
+#include <string>				//string
+#include <iostream>				//cerr
+#include "error_handler.h"		//Self func defs
 
 // global variable to store argv[0] for error messages
 std::string prefix;

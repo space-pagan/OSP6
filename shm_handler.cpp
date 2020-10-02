@@ -2,7 +2,15 @@
  * Date: September 30, 2020
  */
 
-#include "shm_handler.h"
+#include <sys/types.h>			//key_t
+#include <sys/ipc.h>			//ftok(), IPC_CREAT, IPC_EXCL
+#include <sys/shm.h>			//shmget(), shmat(), shmdt(), shmctl()
+#include <sys/sem.h>			//semget(), semop(), semctl()
+#include <fstream>				//ifstream
+#include <string>				//string
+#include <cstring>				//strcpy()
+#include "error_handler.h"		//perrandquit()
+#include "shm_handler.h"		//Self func defs
 
 key_t getkeyfromid(int key_id) {
 	key_t key = ftok(".", key_id);
@@ -16,8 +24,8 @@ int shmlookupid(int key_id) {
 	return shmid;
 }
 
-void* shmcreate(size_t bytes, int key_id) {
-	int shmid = shmget(getkeyfromid(key_id), bytes, IPC_CREAT|IPC_EXCL|0660);
+void* shmcreate(size_t bytes, int& key_id) {
+	int shmid = shmget(getkeyfromid(key_id++), bytes, IPC_CREAT|IPC_EXCL|0660);
 	if (shmid == -1) perrandquit();
 	void* ataddr = shmat(shmid, NULL, 0);
 	if (ataddr == (void*)-1) perrandquit();
@@ -48,14 +56,14 @@ void shmfromfile(const char* filename, int& id, int maxlines) {
 			linecount--; 
 			continue;
 		}
-		char* shmstr = (char*)shmcreate(line.size(), id++);
+		char* shmstr = (char*)shmcreate(line.size(), id);
 		strcpy(shmstr, line.c_str());
 		shmdetach(shmstr);
 	}
 }
 
-int semcreate(int num, int key_id) {
-	int semid = semget(getkeyfromid(key_id), num, IPC_CREAT|IPC_EXCL|0660);
+int semcreate(int num, int& key_id) {
+	int semid = semget(getkeyfromid(key_id++), num, IPC_CREAT|IPC_EXCL|0660);
 	if (semid == -1) perrandquit();
 	return semid;
 }

@@ -1,20 +1,10 @@
 #ifndef CHILD_HANDLER_H
 #define CHILD_HANDLER_H
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sstream>
-#include <vector>
-#include <string>
-#include <cstring>
-#include "error_handler.h"
-
-char** makeargv(std::string, int&);
-void freeargv(char**, int);
-void forkexec(char*, int&);
-int updatechildcount(int&);
-int waitforanychild(int&);
+char** makeargv(std::string line, int& sizeout);
+void freeargv(char** argv, int size);
+void forkexec(const char* cmd, int& pr_count);
+int updatechildcount(int& pr_count);
+int waitforanychild(int& pr_count);
 void killallchildren();
 #endif

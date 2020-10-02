@@ -2,7 +2,16 @@
  * Date: September 11, 2020
  */
 
-#include "child_handler.h"
+#include <sys/types.h>	 		//pid_t
+#include <sys/wait.h>			//wait()
+#include <unistd.h>				//fork(), execvp()
+#include <csignal>				//kill(), SIGTERM
+#include <sstream>				//istringstream
+#include <vector>				//vector
+#include <string>				//string
+#include <cstring>				//strcpy
+#include "error_handler.h"		//perrandquit
+#include "child_handler.h"		//function defs for self
 
 std::vector<int> PIDS;
 
@@ -40,11 +49,11 @@ void freeargv(char** argv, int size) {
 	delete[] argv;
 }
 
-void forkexec(char* cmd, int& pr_count) {
+void forkexec(const char* cmd, int& pr_count) {
 	int child_argc;
 	char** child_argv = makeargv(cmd, child_argc);
-	const int cpid = fork();
-	switch(cpid) {
+	const pid_t child_pid = fork();
+	switch(child_pid) {
 		case -1:
 			// fork() failed. Print the error and terminate.
 			perrandquit();
@@ -57,7 +66,7 @@ void forkexec(char* cmd, int& pr_count) {
 			return;
 		default:
 			// fork() succeeded. Increment pr_count and return
-			PIDS.push_back(cpid);
+			PIDS.push_back(child_pid);
 			pr_count++;
 			freeargv(child_argv, child_argc);
 			return;

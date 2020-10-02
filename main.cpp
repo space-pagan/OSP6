@@ -2,16 +2,18 @@
  * Date: Semptember 28, 2020
  */
 
-#include <iostream>
-#include <string>
-#include <cstring>
-#include <unistd.h>
-#include <csignal>
-#include <stdio.h>
-#include "cli_handler.h"
-#include "child_handler.h"
-#include "error_handler.h"
-#include "shm_handler.h"
+#include <iostream>				//cout
+#include <sstream>				//ostringstream
+#include <string>				//string
+#include <unistd.h>				//alarm()
+#include <csignal>				//signal()
+#include "cli_handler.h"		//getcliarg()
+#include "child_handler.h"		//forkexec(), updatechildcount()
+								//	waitforanychild(), killallchildren()
+#include "error_handler.h"		//setupprefix(), perrquit(), customerrorquit()
+#include "shm_handler.h"		//shmfromfile(), semcreate(), semunlock()
+								//	semdestroy()
+#include "help_handler.h"		//printhelp()
 
 volatile bool earlyquit = false;
 volatile int quittype = 0;
@@ -26,25 +28,13 @@ void signalhandler(int signum) {
 	}
 }
 
-void printhelp(const char* progname) {
-	std::cout << "\nUsage: ";
-	std::cout << progname << " [OPTION]... FILE...\n";
-	std::cout << "Determine whether lines in FILE are palindromes. If yes,";
-	std::cout << " the line is copied to 'palin.out', otherwise it is";
-	std::cout << " copied to 'nopalin.out'.\n";
-
-	std::cout << "\nDefaults to '-n 4 -s 2 -t 100' unless explicitly set.\n";
-
-	std::cout << "\n  -n MAXLINE\t";
-	std::cout << "Set the maximum number of lines to test from the file";
-	
-	std::cout << "\n  -s MAXTHRD\tSet the maximum number of threads";
-
-	std::cout << "\n  -t TIMEOUT\tSet the timeout period in seconds.";
-	std::cout << " After this time has elapsed, " << progname;
-	std::cout << " will terminate";
-
-	std::cout << "\n  -h        \tPrints this message\n";
+void earlyquithandler() {
+	killallchildren();
+	if (quittype == SIGINT) {
+		std::cerr << "SIGINT received! Terminating...\n";
+	} else if (quittype == SIGALRM) {
+		std::cerr << "Timeout limit exceeded! Terminating...\n";
+	}
 }
 
 void testopts(int argc, char** argv, int optind, int max, int& conc,\
@@ -76,36 +66,31 @@ void testopts(int argc, char** argv, int optind, int max, int& conc,\
 }
 
 void main_loop(int max, int conc, char* infile) {
-	int max_count = 0;
-	int conc_count = 0;
-	int startid = 0;
-	int currid = 0;
-	int child_argc;
-	char** child_argv;
+	int max_count = 0;	//count of children created
+	int conc_count = 0;	//count of currently running children
+	int startid = 0;	//key_id of the first shared memory segment
+	int currid = 0;		//key_id of the next available key_id
+	int stopid;			//key_id of the last shared memory segment
+	int semid;			//semid for ipc mutex locks
 
 	shmfromfile(infile, currid, max);
-	// change max to be the number of lines read, may be fewer than -n option
-	max = currid - startid;
-	int semid = semcreate(1, currid);
+	stopid = currid;
+	// change max to be the number of lines read, if less than -n argument
+	max = stopid - startid;
+	semid = semcreate(3, currid);
 	semunlock(semid, 0);
 
-	while (max_count++ < max) {
+	while (max_count++ < max) {		//
 		if (earlyquit) {
-			// semdestroy(semid); // forces sleeping threads to wake up
-			killallchildren();
-			if (quittype == SIGINT) {
-				std::cerr << "SIGINT received! Terminating...\n";
-			} else if (quittype == SIGALRM) {
-				std::cerr << "Timeout limit exceeded! Terminating...\n";
-			}
+			earlyquithandler();
 			break;
 		}
 		while (conc_count >= conc) {
 			waitforanychild(conc_count);
 		}
-		char cmd[16];
-		sprintf(cmd, "palin %d %d", startid+max_count-1, semid);
-		forkexec(cmd, conc_count);
+		std::ostringstream cmd;
+		cmd << "palin" << " " << startid+max_count-1 << " " << semid;
+		forkexec(cmd.str().c_str(), conc_count);
 		updatechildcount(conc_count);
 	}
 	// reached maximum total children. Wait for all remaining to quit
@@ -114,10 +99,9 @@ void main_loop(int max, int conc, char* infile) {
 	}
 
 	// release all shared memory created
-	for (int i = startid; i < currid; i++) {
+	for (int i = startid; i < stopid; i++) {
 		shmdestroy(i);
 	}
-	// if (!earlyquit)	semdestroy(semid);
 	semdestroy(semid);
 }
 
