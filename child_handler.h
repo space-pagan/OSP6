@@ -4,9 +4,17 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <cstring>
 #include "error_handler.h"
 
-void forkexec(char*, char**, int&);
+char** makeargv(std::string, int&);
+void freeargv(char**, int);
+void forkexec(char*, int&);
 int updatechildcount(int&);
 int waitforanychild(int&);
+void killallchildren();
 #endif

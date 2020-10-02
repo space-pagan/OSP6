@@ -7,16 +7,24 @@
 #include <string>
 #include <unistd.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <chrono>
 #include <ctime>
 #include "shm_handler.h"
 #include "error_handler.h"
 
+
 bool testPalindrome(char* testString);
 char* sanitizeStr(char* testString);
 char* getCurrentCTime();
 
+void signalhandler(int signum) {
+	if (signum == SIGINT) exit(-1);
+}
+
 int main(int argc, char **argv) {
+	signal(SIGINT, signalhandler);
+
 	char prefix[strlen(argv[0]) + strlen(argv[1])];
 	sprintf(prefix, "%s%s", argv[0], argv[1]);
 	setupprefix(prefix);
@@ -24,27 +32,35 @@ int main(int argc, char **argv) {
 
 	int id = std::stoi(argv[1]);
 	char* testStr = (char*)shmlookup(id);
+	int semid = std::stoi(argv[2]);
 
 	bool isPalindrome = testPalindrome(sanitizeStr(testStr));
-	std::cout << testStr << " is ";
+	
+	// attempt to enter critical section
+	// semlock(semid, 0);
+	std::cout << argv[0] << argv[1] << ": " << testStr << " is ";
+
 	if (!isPalindrome) {
 		std::cout << "not ";
 	}
 	std::cout << "a palindrome!\n";
-	// attempt to enter critical section
-	std::cerr << "Beginning critical section at: ";
+	
+	semlock(semid, 0);
+
+	std::cerr << argv[0] << argv[1] << ": Beginning critical section at: ";
 	std::cerr << getCurrentCTime() << "\n";
+
 	// sleep for a random amount of time [0-2] seconds.
 	sleep(rand() % 3);
 
 	// Critical Section
-	std::cerr << "In critical section at:        ";
+	std::cerr << argv[0] << argv[1] << ": In critical section at:        ";
 	std::cerr << getCurrentCTime() << "\n";
 
 	// exit critical section
-	std::cerr << "Left critical section at:      ";
+	std::cerr << argv[0] << argv[1] << ": Left critical section at:      ";
 	std::cerr << getCurrentCTime() << "\n";
-
+	semunlock(semid, 0);
 	shmdetach(testStr);
 
 	return 0;

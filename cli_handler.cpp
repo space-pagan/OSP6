@@ -62,37 +62,3 @@ char* getoptstr(const char* options, const char* flags) {
 	}
 	return optstr;
 }
-
-char** makeargv(std::string line, int& size) {
-	// tokenizes an std::string on whitespace and converts it to char**
-	// with the last element being a nullptr. Saves the column size to 'size'
-	std::istringstream iss(line);
-	std::vector<std::string> argvector;
-	while (iss) {
-		// extract characters until the next whitespace, and add it to
-		// argvector
-		std::string sub;
-		iss >> sub;
-		argvector.push_back(sub);
-	}
-	// instantiate the char** array to be the correct size to hold all the
-	// tokens, plus nullptr
-	char** out = new char*[argvector.size()];
-	for (int i = 0; i < argvector.size()-1; i++) {
-		// instantiate the inner array and copy back the token
-		out[i] = new char[argvector[i].size()];
-		strcpy(out[i], argvector[i].c_str());
-	}
-	size = argvector.size();
-	// the last token extracted from iss is "" (empty string), it's safe to
-	// overwrite this with nullptr
-	out[size-1] = nullptr;
-	return out;
-}
-
-void freeargv(char** argv, int size) {
-	for (int x = 0; x < size; x++) {
-		delete[] argv[x];
-	}
-	delete[] argv;
-}
