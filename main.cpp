@@ -79,6 +79,8 @@ void main_loop(int max, int conc, char* infile) {
 	max = stopid - startid;
 	semid = semcreate(3, currid);
 	semunlock(semid, 0);
+	semunlock(semid, 1);
+	semunlock(semid, 2);
 
 	while (max_count++ < max) {		//
 		if (earlyquit) {

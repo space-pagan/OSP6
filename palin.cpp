@@ -2,21 +2,23 @@
  * Date: September 28, 2020
  */
 
-#include <iostream>
-#include <cstring>
-#include <string>
-#include <unistd.h>
-#include <stdlib.h>
-#include <signal.h>
+#include <iostream>			//cout, cerr
+#include <sstream>			//ostringstream
+#include <string>			//string
+#include <cstring>			//strlen(), strcmp()
+#include <unistd.h>			//
+#include <stdlib.h>			//
+#include <signal.h>			//
 #include <chrono>
-#include <ctime>
-#include "shm_handler.h"
-#include "error_handler.h"
+#include <ctime>			//
+#include "shm_handler.h"	//
+#include "error_handler.h"	//
 
+using namespace std::chrono;
 
 bool testPalindrome(char* testString);
 char* sanitizeStr(char* testString);
-char* getCurrentCTime();
+void getCurrentCTime(char* outchr);
 
 void signalhandler(int signum) {
 	if (signum == SIGINT) exit(-1);
@@ -25,51 +27,78 @@ void signalhandler(int signum) {
 int main(int argc, char **argv) {
 	signal(SIGINT, signalhandler);
 
-	char prefix[strlen(argv[0]) + strlen(argv[1])];
-	sprintf(prefix, "%s%s", argv[0], argv[1]);
-	setupprefix(prefix);
+	std::ostringstream prefix;
+	prefix << argv[0] << argv[1];
+	setupprefix(prefix.str().c_str());
 	srand(getpid());
 
 	int id = std::stoi(argv[1]);
 	char* testStr = (char*)shmlookup(id);
 	int semid = std::stoi(argv[2]);
+	int semnum;
 
 	bool isPalindrome = testPalindrome(sanitizeStr(testStr));
-	
-	// attempt to enter critical section
-	// semlock(semid, 0);
-	std::cout << argv[0] << argv[1] << ": " << testStr << " is ";
-
+	char timechr[9];
+	// writes entire message to terminal in one action to prevent
+	// interference from messages from other processes
+	std::ostringstream termout;
+	getCurrentCTime(timechr);
+	termout << timechr << ":  ";
+	termout << prefix.str() << ": " << testStr << " is ";
 	if (!isPalindrome) {
-		std::cout << "not ";
+		termout << "not a palindrome!\n";
+		semnum = 1;
+	} else {
+		termout << "a palindrome!\n";
+		semnum = 0;
 	}
-	std::cout << "a palindrome!\n";
-	
-	semlock(semid, 0);
+	std::cout << termout.str();
 
-	std::cerr << argv[0] << argv[1] << ": Beginning critical section at: ";
-	std::cerr << getCurrentCTime() << "\n";
+	// attempt to enter critical section
+	semlock(semid, semnum);
+	termout.str("");
+	getCurrentCTime(timechr);
+	termout << timechr << ":  ";
+	termout << prefix.str() << ": Beginning critical section\n";
+	std::cerr << termout.str();
 
 	// sleep for a random amount of time [0-2] seconds.
 	sleep(rand() % 3);
 
 	// Critical Section
-	std::cerr << argv[0] << argv[1] << ": In critical section at:        ";
-	std::cerr << getCurrentCTime() << "\n";
+	termout.str("");
+	getCurrentCTime(timechr);
+	termout << timechr << ":  ";
+	termout << prefix.str() << ": In critical section\n";
+	std::cerr << termout.str();
 
 	// exit critical section
-	std::cerr << argv[0] << argv[1] << ": Left critical section at:      ";
-	std::cerr << getCurrentCTime() << "\n";
-	semunlock(semid, 0);
-	shmdetach(testStr);
+	termout.str("");
+	getCurrentCTime(timechr);
+	termout << timechr << ":  ";
+	termout << prefix.str() << ": Left critical section\n";
+	std::cerr << termout.str();
+	semunlock(semid, semnum);
+	
+	// log to logfile
+	semlock(semid, 2);
+	termout.str("");
+	getCurrentCTime(timechr);
+	termout << timechr << ":  ";
+	termout << prefix.str() << ": Writing to log\n";
+	std::cerr << termout.str();
+	semunlock(semid, 2);
 
+	// cleanup
+	shmdetach(testStr);
 	return 0;
 }
 
-char* getCurrentCTime() {
-	auto time_point = std::chrono::system_clock::now();
-	std::time_t time_c = std::chrono::system_clock::to_time_t(time_point);
-	return std::ctime(&time_c);
+void getCurrentCTime(char* outchr) {
+	auto timenow = system_clock::to_time_t(system_clock::now());
+	const char* timechr = std::ctime(&timenow);
+	memset(outchr, '\0', 9);
+	strncpy(outchr, timechr+11, 8);
 }
 
 char* sanitizeStr(char* testString) {

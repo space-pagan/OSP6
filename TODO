@@ -1,0 +1,5 @@
+* add semcreateunlocked or semunlockn to shm_handler
+* add file_handler and have palin write to correct files
+* bugtesting, try to crash, optimize
+* README
+* Submit

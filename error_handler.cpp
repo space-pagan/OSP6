@@ -9,7 +9,7 @@
 // global variable to store argv[0] for error messages
 std::string prefix;
 
-void setupprefix(char* arg0) {
+void setupprefix(const char* arg0) {
 	// sets the value of prefix. Run this at the very start
 	// of the program to ensure that perror always displays
 	// the correct error message
