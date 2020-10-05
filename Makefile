@@ -1,14 +1,16 @@
 CC=g++
 CFLAGS=-I -Wall -std=c++11 -g
-DEPS = cli_handler.h child_handler.h error_handler.h shm_handler.h help_handler.h
+DEPS = cli_handler.h child_handler.h error_handler.h shm_handler.h $\
+	   help_handler.h file_handler.h
 EXECUTABLES = master palin 
 
 project2: $(EXECUTABLES)
 
-master: main.o cli_handler.o child_handler.o error_handler.o shm_handler.o help_handler.o
+master: main.o cli_handler.o child_handler.o error_handler.o shm_handler.o $\
+		help_handler.o file_handler.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
-palin: palin.o shm_handler.o error_handler.o
+palin: palin.o shm_handler.o error_handler.o file_handler.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 %.o: %.cpp $(DEPS)
@@ -16,3 +18,6 @@ palin: palin.o shm_handler.o error_handler.o
 
 clean:
 	rm -f *.o $(EXECUTABLES)
+
+cleantemp:
+	rm -f *.o *.log *.out

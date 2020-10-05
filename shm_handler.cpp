@@ -6,11 +6,11 @@
 #include <sys/ipc.h>			//ftok(), IPC_CREAT, IPC_EXCL
 #include <sys/shm.h>			//shmget(), shmat(), shmdt(), shmctl()
 #include <sys/sem.h>			//semget(), semop(), semctl()
-#include <fstream>				//ifstream
 #include <string>				//string
 #include <cstring>				//strcpy()
 #include "error_handler.h"		//perrandquit()
 #include "shm_handler.h"		//Self func defs
+#include "file_handler.h"		//add_infile(), readline()
 
 key_t getkeyfromid(int key_id) {
 	key_t key = ftok(".", key_id);
@@ -47,10 +47,10 @@ void shmdestroy(int key_id) {
 }
 
 void shmfromfile(const char* filename, int& id, int maxlines) {
-	std::ifstream file(filename);
-	std::string line;
+	int fileid = add_infile(filename);
 	int linecount = 0;
-	while ((std::getline(file, line)) && (linecount++ < maxlines)) {
+	std::string line;
+	while ((readline(fileid, line)) && (linecount++ < maxlines)) {
 		// shmcreate fails if size=0, skip blank lines
 		if (line.size() == 0) {
 			linecount--; 

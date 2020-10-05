@@ -14,6 +14,7 @@
 #include "shm_handler.h"		//shmfromfile(), semcreate(), semunlock()
 								//	semdestroy()
 #include "help_handler.h"		//printhelp()
+#include "file_handler.h"		//add_outfile_append(), writeline()
 
 volatile bool earlyquit = false;
 volatile int quittype = 0;
@@ -73,6 +74,7 @@ void main_loop(int max, int conc, char* infile) {
 	int stopid;			//key_id of the last shared memory segment
 	int semid;			//semid for ipc mutex locks
 
+
 	shmfromfile(infile, currid, max);
 	stopid = currid;
 	// change max to be the number of lines read, if less than -n argument
@@ -128,7 +130,17 @@ int main(int argc, char **argv) {
 	testopts(argc, argv, optind, max, conc, max_time, flags);
 	// set up kill timer
 	alarm(max_time);
+	// internal file id for output.log
+	int logid = add_outfile_append("output.log");
+	writeline(logid, std::string("Started job '") + std::string(infile) +\
+			std::string("' (n=") + std::to_string(max) +\
+			std::string(", s=") + std::to_string(conc) +\
+			std::string(", t=") + std::to_string(max_time) +\
+			std::string(")"));
+	close_outfile(logid);
 	main_loop(max, conc, infile);
+	logid = add_outfile_append("output.log");
+	writeline(logid, "Complete!");
 
 	return 0;
 }

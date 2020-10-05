@@ -3,3 +3,5 @@ master
 palin
 testdata
 *_debug*
+*.out
+*.log
