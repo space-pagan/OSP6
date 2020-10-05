@@ -20,12 +20,9 @@ volatile bool earlyquit = false;
 volatile int quittype = 0;
 
 void signalhandler(int signum) {
-	if (signum == SIGALRM) {
-		quittype = SIGALRM;
+	if (signum == SIGALRM || signum == SIGINT) {
 		earlyquit = true;
-	} else if (signum == SIGINT) {
-		quittype = SIGINT;
-		earlyquit = true;
+		quittype = signum;
 	}
 }
 
@@ -97,6 +94,10 @@ void main_loop(int max, int conc, char* infile) {
 	}
 	// reached maximum total children. Wait for all remaining to quit
 	while (conc_count > 0) {
+		if (earlyquit) {
+			earlyquithandler();
+			break;
+		}
 		waitforanychild(conc_count);
 	}
 
