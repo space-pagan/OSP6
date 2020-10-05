@@ -80,9 +80,7 @@ void main_loop(int max, int conc, char* infile) {
 	// change max to be the number of lines read, if less than -n argument
 	max = stopid - startid;
 	semid = semcreate(3, currid);
-	semunlock(semid, 0);
-	semunlock(semid, 1);
-	semunlock(semid, 2);
+	semunlockall(semid, 3);
 
 	while (max_count++ < max) {		//
 		if (earlyquit) {
@@ -137,9 +135,7 @@ int main(int argc, char **argv) {
 			std::string(", s=") + std::to_string(conc) +\
 			std::string(", t=") + std::to_string(max_time) +\
 			std::string(")"));
-	close_outfile(logid);
 	main_loop(max, conc, infile);
-	logid = add_outfile_append("output.log");
 	writeline(logid, "Complete!");
 
 	return 0;

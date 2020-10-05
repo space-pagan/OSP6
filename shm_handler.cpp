@@ -93,6 +93,26 @@ void semunlock(int semid, int semnum) {
 	if (semop(semid, &op, 1) == -1) perrandquit();
 }
 
+void semunlockall(int semid, int semsize) {
+	struct sembuf op[semsize];
+	for ( int i = 0; i < semsize; i++) {
+		op[i].sem_num = i;
+		op[i].sem_op = 1;
+		op[i].sem_flg = 0;
+	}
+	if (semop(semid, op, semsize) == -1) perrandquit();
+}
+
+void semlockall(int semid, int semsize) {
+	struct sembuf op[semsize];
+	for (int i = 0; i < semsize; i++) {
+		op[i].sem_num = i;
+		op[i].sem_op = -1;
+		op[i].sem_flg = 0;
+	}
+	if (semop(semid, op, semsize) == -1) perrandquit();
+}
+
 void semdestroy(int semid) {
 	if (semctl(semid, 0, IPC_RMID) == -1) perrandquit();
 }

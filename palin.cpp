@@ -42,23 +42,12 @@ int main(int argc, char **argv) {
 	int logid = add_outfile_append("output.log");
 
 	bool isPalindrome = testPalindrome(sanitizeStr(testStr));
-	// writes entire message to terminal in one action to prevent
-	// interference from messages from other processes
-	std::string ln;
-	if (isPalindrome) {
-		ln = std::string(": ") + testStr +\
-			 std::string(" is a palindrome!\n");
-		fileid = add_outfile_append("palin.out");
-		semnum = 0;
-	} else {
-		ln = std::string(": ") + testStr +\
-			 std::string(" is not a palindrome!\n");
-		fileid = add_outfile_append("nopalin.out");
-		semnum = 1;
-	}
-	printclockmsg(std::cout, ln);
+	printclockmsg(std::cout, std::string(": ") + testStr +\
+			std::string(isPalindrome ? " is a palindrome!\n" :
+				"is not a palindrome!\n"));
 
 	// attempt to enter critical section
+	semnum = isPalindrome ? 0 : 1;
 	semlock(semid, semnum);
 	printclockmsg(std::cerr, ": Beginning critical section\n");
 
@@ -67,6 +56,7 @@ int main(int argc, char **argv) {
 
 	// Critical Section
 	printclockmsg(std::cerr, ": In critical section\n");
+	fileid = add_outfile_append(isPalindrome ? "palin.out" : "nopalin.out");
 	writeline(fileid, testStr);
 	close_outfile(fileid);
 
@@ -76,7 +66,6 @@ int main(int argc, char **argv) {
 	
 	// log to logfile
 	semlock(semid, 2);
-	printclockmsg(std::cerr, ": Writing to log\n");
 	writeline(logid, std::to_string((int)getpid()) + std::string("\t") +\
 			std::to_string(id) + std::string("\t") + testStr);
 	close_outfile(logid);

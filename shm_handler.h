@@ -10,5 +10,7 @@ int semcreate(int num, int& key_id);
 int semlookup(int key_id);
 void semlock(int semid, int semnum);
 void semunlock(int semid, int semnum);
+void semunlockall(int semid, int semsize);
+void semlockall(int semid, int semsize);
 void semdestroy(int semid);
 #endif

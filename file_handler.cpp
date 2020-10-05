@@ -33,6 +33,7 @@ int readline(int filenum, std::string& outstr) {
 
 void writeline(int filenum, std::string line) {
 	outfiles[filenum] << line << "\n";
+	outfiles[filenum].flush();
 }
 
 void close_outfile(int filenum) {
