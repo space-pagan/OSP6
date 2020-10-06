@@ -17,6 +17,7 @@
 #include "file_handler.h"		//add_outfile_append(), writeline()
 
 volatile bool earlyquit = false;
+volatile bool handlinginterrupt = false;
 volatile int quittype = 0;
 
 void signalhandler(int signum) {
@@ -27,11 +28,14 @@ void signalhandler(int signum) {
 }
 
 void earlyquithandler() {
-	killallchildren();
-	if (quittype == SIGINT) {
-		std::cerr << "SIGINT received! Terminating...\n";
-	} else if (quittype == SIGALRM) {
-		std::cerr << "Timeout limit exceeded! Terminating...\n";
+	if (!handlinginterrupt) {
+		handlinginterrupt = true;
+		killallchildren();
+		if (quittype == SIGINT) {
+			std::cerr << "SIGINT received! Terminating...\n";
+		} else if (quittype == SIGALRM) {
+			std::cerr << "Timeout limit exceeded! Terminating...\n";
+		}
 	}
 }
 
