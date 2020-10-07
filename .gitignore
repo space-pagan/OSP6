@@ -1,8 +1,12 @@
+bin/
+obj/
+
 *.o
+*.out
+*.log
+*_debug*
+
 master
 palin
 testdata
-*_debug*
-*.out
-*.log
 TODO

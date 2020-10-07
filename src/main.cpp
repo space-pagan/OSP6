@@ -1,25 +1,27 @@
-  /* Author: Zoya Samsonov
- * Date: Semptember 28, 2020
- */
+ /* Author: Zoya Samsonov
+  * Date: October 6, 2020
+  */
 
 #include <iostream>				//cout
-#include <sstream>				//ostringstream
 #include <string>				//string
 #include <unistd.h>				//alarm()
 #include <csignal>				//signal()
 #include "cli_handler.h"		//getcliarg()
 #include "child_handler.h"		//forkexec(), updatechildcount()
 								//	waitforanychild(), killallchildren()
-#include "error_handler.h"		//setupprefix(), perrquit(), customerrorquit()
+#include "error_handler.h"		//setupprefix(), perrquit(), 
+								//	custerrhelpprompt()
 #include "shm_handler.h"		//shmfromfile(), semcreate(), semunlock()
 								//	semdestroy()
 #include "help_handler.h"		//printhelp()
 #include "file_handler.h"		//add_outfile_append(), writeline()
 
+// variables used in interrupt handling
 volatile bool earlyquit = false;
 volatile bool handlinginterrupt = false;
 volatile int quittype = 0;
 
+// set flags so program can quit gracefully
 void signalhandler(int signum) {
 	if (signum == SIGALRM || signum == SIGINT) {
 		earlyquit = true;
@@ -27,10 +29,12 @@ void signalhandler(int signum) {
 	}
 }
 
+// ignore nested interrupts, only need to quit once :)
 void earlyquithandler() {
 	if (!handlinginterrupt) {
 		handlinginterrupt = true;
-		killallchildren();
+		killallchildren(); //child_handler.h
+		// print message to indicate reason for termination
 		if (quittype == SIGINT) {
 			std::cerr << "SIGINT received! Terminating...\n";
 		} else if (quittype == SIGALRM) {
@@ -39,6 +43,8 @@ void earlyquithandler() {
 	}
 }
 
+// tests and modifies parsed cli arguments and flags. If all correct, 
+// returns to main(), otherwise exit().
 void testopts(int argc, char** argv, int optind, int max, int& conc,\
 		int max_time, bool* flags) {
 	// print help message and quit
@@ -47,23 +53,19 @@ void testopts(int argc, char** argv, int optind, int max, int& conc,\
 		exit(0);
 	}
 
-	if (argc <= optind) customerrorquit("FILE is required!");
-	if (argc > optind+1) {
-		std::string errmsg("Unknown argument '");
-		errmsg += argv[optind];
-		errmsg += "'";
-		customerrorquit(errmsg.c_str());
-	}
-	if (max < 1) customerrorquit(
+	if (argc <= optind) custerrhelpprompt("FILE is required!");
+	if (argc > optind+1) custerrhelpprompt(
+			"Unknown argument '" + std::string(argv[optind]) + "'");
+	if (max < 1) custerrhelpprompt(
 			"option -n must be an integer greater than 0");
-	if (conc < 1) customerrorquit(
+	if (conc < 1) custerrhelpprompt(
 			"option -s must be an integer greater than 0");
 	if (conc > 20) {
 		std::cout << "This system does not allow more than 20 concurrent";
 		std::cout << " processes. Option -s has been set to 20.\n";
 		conc = 20;
 	}
-	if (max_time < 1) customerrorquit(
+	if (max_time < 1) custerrhelpprompt(
 			"option -t must be an integer greater than 0");
 }
 
@@ -91,9 +93,8 @@ void main_loop(int max, int conc, char* infile) {
 		while (conc_count >= conc) {
 			waitforanychild(conc_count);
 		}
-		std::ostringstream cmd;
-		cmd << "palin" << " " << startid+max_count-1 << " " << semid;
-		forkexec(cmd.str().c_str(), conc_count);
+		forkexec("palin " + std::to_string(startid+max_count-1) +\
+				 " " + std::to_string(semid), conc_count);
 		updatechildcount(conc_count);
 	}
 	// reached maximum total children. Wait for all remaining to quit

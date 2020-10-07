@@ -1,5 +1,5 @@
 /* Author: Zoya Samsonov
- * Date: October 2, 2020
+ * Date: October 6, 2020
  */
 
 #include <iostream>
@@ -23,5 +23,5 @@ void printhelp(const char* progname) {
 	std::cout << " After this time has elapsed, " << progname;
 	std::cout << " will terminate";
 
-	std::cout << "\n  -h        \tPrints this message\n";
+	std::cout << "\n  -h        \tPrints this message\n\n";
 }

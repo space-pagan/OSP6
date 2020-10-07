@@ -1,23 +1,36 @@
-CC=g++
-CFLAGS=-I -Wall -std=c++11 -g
-DEPS = cli_handler.h child_handler.h error_handler.h shm_handler.h $\
-	   help_handler.h file_handler.h
-EXECUTABLES = master palin 
+SRC_DIR	:= src
+OBJ_DIR := obj
+BIN_DIR := bin
 
-project2: $(EXECUTABLES)
+EXE1 := $(BIN_DIR)/master
+EXE2 := $(BIN_DIR)/palin
+SRC  := $(wildcard $(SRC_DIR)/*.cpp)
+OBJ  := $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
-master: main.o cli_handler.o child_handler.o error_handler.o shm_handler.o $\
-		help_handler.o file_handler.o
-	$(CC) -o $@ $^ $(CFLAGS)
+CC		 := g++ -std=c++11
+CPPFLAGS := -Iinclude -MMD -MP
+CFLAGS 	 := -Wall -g
 
-palin: palin.o shm_handler.o error_handler.o file_handler.o
-	$(CC) -o $@ $^ $(CFLAGS)
+.PHONY: all clean cleanrun
 
-%.o: %.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+all: $(EXE1) $(EXE2)
+
+$(EXE1): $(filter-out $(OBJ_DIR)/palin.o, $(OBJ)) | $(BIN_DIR)
+	$(CC) $^ -o $@
+
+$(EXE2): $(filter-out $(OBJ_DIR)/main.o, $(OBJ)) | $(BIN_DIR)
+	$(CC) $^ -o $@
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(BIN_DIR) $(OBJ_DIR):
+	mkdir -p $@
 
 clean:
-	rm -f *.o $(EXECUTABLES)
+	@$(RM) -rv $(BIN_DIR) $(OBJ_DIR)
 
-cleantemp:
-	rm -f *.o *.log *.out
+cleanrun:
+	@$(RM) -rv $(BIN_DIR)/*.out $(BIN_DIR)/*.log
+
+-include $(OBJ:.o=.d)

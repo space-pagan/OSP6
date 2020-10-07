@@ -1,5 +1,5 @@
 /* Author: Zoya Samsonov
- * Date: September 11, 2020
+ * Date: October 6, 2020
  */
 
 #include <sys/types.h>	 		//pid_t
@@ -13,7 +13,7 @@
 #include "error_handler.h"		//perrandquit
 #include "child_handler.h"		//function defs for self
 
-std::vector<int> PIDS;
+std::vector<pid_t> PIDS;
 
 char** makeargv(std::string line, int& size) {
 	// tokenizes an std::string on whitespace and converts it to char**
@@ -49,6 +49,10 @@ void freeargv(char** argv, int size) {
 	delete[] argv;
 }
 
+void forkexec(std::string cmd, int& pr_count) {
+	forkexec(cmd.c_str(), pr_count);
+}
+
 void forkexec(const char* cmd, int& pr_count) {
 	int child_argc;
 	char** child_argv = makeargv(cmd, child_argc);
@@ -65,7 +69,8 @@ void forkexec(const char* cmd, int& pr_count) {
 			perrandquit();
 			return;
 		default:
-			// fork() succeeded. Increment pr_count and return
+			// fork() succeeded. Add child pid to list to quickly kill if
+			// SIGINT. Increment pr_count and return
 			PIDS.push_back(child_pid);
 			pr_count++;
 			freeargv(child_argv, child_argc);
@@ -110,7 +115,9 @@ int waitforanychild(int& pr_count) {
 }
 
 void killallchildren() {
-	for (int i = 0; i < PIDS.size(); i++) {
-		kill(PIDS[i], SIGTERM);
-	}
+	// sends SIGTERM to any PID in the PIDS vector
+	for (int p : PIDS) 
+		// ignore failure due to child already terminated
+		if (kill(p, SIGTERM) == -1 && errno != ESRCH) 
+			perrandquit();
 }
