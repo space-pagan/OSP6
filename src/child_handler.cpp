@@ -30,7 +30,7 @@ char** makeargv(std::string line, int& size) {
 	// instantiate the char** array to be the correct size to hold all the
 	// tokens, plus nullptr
 	char** out = new char*[argvector.size()];
-	for (int i = 0; i < argvector.size()-1; i++) {
+	for (int i = 0; i < (int)argvector.size()-1; i++) {
 		// instantiate the inner array and copy back the token
 		out[i] = new char[argvector[i].size()];
 		strcpy(out[i], argvector[i].c_str());

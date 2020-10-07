@@ -8,5 +8,4 @@ obj/
 
 master
 palin
-testdata
-TODO
+*.test

@@ -45,7 +45,7 @@ int getcliarg(int argc, char** argv, const char* options, \
 		}
 		// check if the matched item is an argument
 		int optindex = -1;
-		for (int j = 0; j < strlen(options); j++) {
+		for (int j = 0; j < (int)strlen(options); j++) {
 			if (c == options[j]) {
 				optindex = j;
 				optout[optindex] = std::stoi(optarg);
@@ -54,7 +54,7 @@ int getcliarg(int argc, char** argv, const char* options, \
 		}
 		if (optindex == -1) {
 			// must be a flag
-			for (int j = 0; j < strlen(flags); j++) {
+			for (int j = 0; j < (int)strlen(flags); j++) {
 				if (c == flags[j]) {
 					flagout[j] = true;
 					break;

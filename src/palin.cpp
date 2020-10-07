@@ -49,7 +49,7 @@ char* sanitizeStr(char* testString) {
 		if (((48 <= c) && (c <= 57)) || ((65 <= c) && (c <= 90)) 
 				|| ((97 <= c) && (c <= 122))) {
 			// 0-9A-Za-z
-			sanitary[j++] = c;
+			sanitary[j++] = std::tolower(c);
 		}
 	}
 	sanitary[j] = '\0';
