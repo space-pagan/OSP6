@@ -3,7 +3,9 @@ OBJ_DIR := obj
 BIN_DIR := bin
 
 EXE1 := $(BIN_DIR)/master
+FIL1 := $(OBJ_DIR)/palin.o
 EXE2 := $(BIN_DIR)/palin
+FIL2 := $(OBJ_DIR)/master.o
 SRC  := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ  := $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
@@ -15,10 +17,10 @@ CFLAGS 	 := -Wall -g
 
 all: $(EXE1) $(EXE2)
 
-$(EXE1): $(filter-out $(OBJ_DIR)/palin.o, $(OBJ)) | $(BIN_DIR)
+$(EXE1): $(filter-out $(FIL1), $(OBJ)) | $(BIN_DIR)
 	$(CC) $^ -o $@
 
-$(EXE2): $(filter-out $(OBJ_DIR)/main.o, $(OBJ)) | $(BIN_DIR)
+$(EXE2): $(filter-out $(FIL2), $(OBJ)) | $(BIN_DIR)
 	$(CC) $^ -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)

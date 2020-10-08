@@ -1,20 +1,26 @@
 Author: Zoya Samsonov
-Date: September 11, 2020
+Date: October 6, 2020
 
 Compilation:
-	The Makefile for this project generates three executables:
-		proc_fan
-		testsim
-		testsim2
+	The Makefile for this project will create the following:
+		bin/master
+		bin/palin
 	
-	The default recipe 'make' will compile all three. If compilation of the
-	test executables is not desired, use 'make proc_fan' instead.
+		The default recipe 'make' will build both of these executables.
+		'make clean' will delete obj/ and bin/, including all files within
+		'make cleanrun' will delete bin/*.out and bin/*.log
 
 Running the program:
-	proc_fan -n PRLIMIT
+	master [-n N] [-s S] [-t T] [-h] FILE
+		-n N	Sets the maximum number of non-blank lines to process from FILE,
+					defaults to 4
 
-	PRLIMIT must be an integer >= 1 for proc_fan to read any input from stdin
-		setting PRLIMIT < 1 will result in proc_fan exiting immediately.
+		-s S	Sets the maximum number of concurrent child processes.
+					defaults to 2, Hard-limited to 20
+
+		-t T	Sets the timeout period. After T seconds have passed, master
+					and all child processes will be terminated.
+					defaults to 100
 
 Version Control:
 	This project's version control has been managed under git. For a log of
@@ -24,18 +30,18 @@ Outstanding Problems:
 	None, to my knowledge.
 
 Encountered Difficulties:
-	This project was really rather straight-forward. The only issue that I
-	encountered was in tokenizing the line read from stdin, since I'm used to
-	many higher-level languages having some kind of .split() function in
-	strings. Additionally, I initially misread the definition of execvp()
-	and was working under the impression that char** argv was required to
-	have a tail element of "\0", when in reality it must have a tail element
-	of nullptr. This led to some segfaulting and unexpected behaviour, but
-	has been fixed and seems to run without any issues.
+	The only major issues have been setting up shared memory, as it took me
+	some time to realize that it is very difficult to create a two-dimensional
+	shared memory object. Additionally, I ran into issues storing stream
+	objects in a vector due to a bug in gcc 4.8.5, even though this behaviour
+	is legal and defined by the C++11 standard.
 
 Bugtesting efforts:
-	Manual input from terminal
-	File read into stdin
-	Multiple test programs (testsim, testsim2) with varied behaviour
+	Multiple test files (tests/*.test) with varied behaviour
+	Manual early termination of master with ^C
+	Automated early termination of master with -t
+	Various combinations of CLI arguments to test CLI Parsing
+	Giving invalid names for FILE
+	removing palin from bin/ directory
 
 	Everything appears to work without issue.

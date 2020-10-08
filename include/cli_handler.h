@@ -3,4 +3,5 @@
 
 int getcliarg(int argc, char** argv, const char* options, \
 		const char* flags, int* optout, bool* flagout);
+
 #endif

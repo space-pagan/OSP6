@@ -13,4 +13,6 @@ void semunlock(int semid, int semnum);
 void semunlockall(int semid, int semsize);
 void semlockall(int semid, int semsize);
 void semdestroy(int semid);
+void ipc_cleanup();
+
 #endif

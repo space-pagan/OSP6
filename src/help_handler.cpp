@@ -6,6 +6,8 @@
 #include "help_handler.h"
 
 void printhelp(const char* progname) {
+	// print help instructions for the current program, attempts to follow
+	// MAN format as closely as possible.
 	std::cout << "\nUsage: ";
 	std::cout << progname << " [OPTION]... FILE...\n";
 	std::cout << "Determine whether lines in FILE are palindromes. If yes,";

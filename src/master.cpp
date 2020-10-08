@@ -11,8 +11,8 @@
 								//	waitforanychild(), killallchildren()
 #include "error_handler.h"		//setupprefix(), perrquit(), 
 								//	custerrhelpprompt()
-#include "shm_handler.h"		//shmfromfile(), semcreate(), semunlock()
-								//	semdestroy()
+#include "shm_handler.h"		//shmfromfile(), semcreate(), semunlockall()
+								//	ipc_cleanup()
 #include "help_handler.h"		//printhelp()
 #include "file_handler.h"		//add_outfile_append(), writeline()
 
@@ -101,16 +101,12 @@ void main_loop(int max, int conc, char* infile) {
 	while (conc_count > 0) {
 		if (earlyquit) {
 			earlyquithandler();
-			break;
 		}
 		waitforanychild(conc_count);
 	}
 
 	// release all shared memory created
-	for (int i = startid; i < stopid; i++) {
-		shmdestroy(i);
-	}
-	semdestroy(semid);
+	ipc_cleanup();
 }
 
 int main(int argc, char **argv) {
@@ -142,7 +138,11 @@ int main(int argc, char **argv) {
 			std::string(", t=") + std::to_string(max_time) +\
 			std::string(")"));
 	main_loop(max, conc, infile);
-	writeline(logid, "Complete!");
+	if (earlyquit) {
+		writeline(logid, "Process terminated before completion");
+	} else {
+		writeline(logid, "Complete!");
+	}
 
 	return 0;
 }
