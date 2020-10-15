@@ -6,6 +6,6 @@ obj/
 *.log
 *_debug*
 
-master
-palin
+oss
+oss_child
 *.test
