@@ -2,6 +2,7 @@
 #define CLI_HANDLER_H
 
 int getcliarg(int argc, char** argv, const char* options, \
-        const char* flags, int* optout, bool* flagout);
+        const char* flags, std::vector<std::string> &optout,\
+        bool* flagout);
 
 #endif

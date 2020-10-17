@@ -6,6 +6,7 @@
 #include <string>               //string
 #include <cstring>              //strlen()
 #include <sstream>              //ostringstream
+#include <vector>               //std::vector
 #include "error_handler.h"      //custerrhelpprompt()
 #include "cli_handler.h"        //Self func defs
 
@@ -29,7 +30,8 @@ char* getoptstr(const char* options, const char* flags) {
 }
 
 int getcliarg(int argc, char** argv, const char* options, \
-              const char* flags, int* optout, bool* flagout) {
+              const char* flags, std::vector<std::string> &optout, \
+              bool* flagout) {
     // Searches argv for options and flags, stores values in optout, flagout
     // if any arguments are not present or unknown flags are used,
     // returns -1 to tell main() to quit. Otherwise returns 0;
@@ -52,7 +54,7 @@ int getcliarg(int argc, char** argv, const char* options, \
             if (c == options[j]) {
                 optindex = j;
                 // yes, set optout to argument value
-                optout[optindex] = std::stoi(optarg);
+                optout[optindex] = std::string(optarg);
                 break;
             }
         }

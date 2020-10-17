@@ -4,8 +4,10 @@
 
 #include <iostream>              //cout
 #include <string>                //string
+#include <cstring>               //strcmp()
 #include <unistd.h>              //alarm()
 #include <csignal>               //signal()
+#include <vector>                //vector
 #include "cli_handler.h"         //getcliarg()
 #include "child_handler.h"       //forkexec(), updatechildcount()
                                  //    waitforanychild(), killallchildren()
@@ -45,68 +47,67 @@ void earlyquithandler() {
 
 // tests and modifies parsed cli arguments and flags. If all correct, 
 // returns to main(), otherwise exit().
-void testopts(int argc, char** argv, int optind, int max, int& conc,\
-        int max_time, bool* flags) {
+void testopts(int argc, char** argv, int optind, int& conc, \
+              const char* logfile, int max_time, bool* flags) {
     // print help message and quit
     if (flags[0]) {
         printhelp(argv[0]);
         exit(0);
     }
 
-    // not enough arguments, FILE is missing
-    if (argc <= optind) custerrhelpprompt("FILE is required!");
-    // too many arguments
+    if (!strcmp(logfile, "")) custerrhelpprompt(
+            "-l FILE is a required argument!");
     if (argc > optind+1) custerrhelpprompt(
             "Unknown argument '" + std::string(argv[optind]) + "'");
-    // inappropriate values for -n, -s, -t
-    if (max < 1) custerrhelpprompt(
-            "option -n must be an integer greater than 0");
+    // inappropriate values for -c, -t
     if (conc < 1) custerrhelpprompt(
             "option -s must be an integer greater than 0");
     if (conc > 20) {
         std::cout << "This system does not allow more than 20 concurrent";
-        std::cout << " processes. Option -s has been set to 20.\n";
+        std::cout << " processes. Option -c has been set to 20.\n";
         conc = 20;
     }
     if (max_time < 1) custerrhelpprompt(
             "option -t must be an integer greater than 0");
 }
 
-void main_loop(int max, int conc, char* infile) {
+void main_loop(int conc, const char* logfile) {
     int max_count = 0;    //count of children created
     int conc_count = 0;   //count of currently running children
-    int startid = 0;      //key_id of the first shared memory segment
-    int currid = 0;       //key_id of the next available key_id
-    int semid;            //semid for ipc mutex locks
+    int currID = 0;
+    int* clk_s = (int*)shmcreate(sizeof(int), currID);
+    int* clk_n = (int*)shmcreate(sizeof(int), currID);
+    int* shmPID = (int*)shmcreate(sizeof(int), currID);
 
-    // create shared memory segments for each non-blank line of the file
-    // up to max lines
-    shmfromfile(infile, currid, max);
-    // change max to be the number of lines read, if less than -n argument
-    // this is only relevant if -n argument is greater than the number
-    // of lines in the file
-    max = currid - startid;
-    // create semaphores for mutex control of files being written
-    semid = semcreate(3, currid);
-    // initiate all semaphores to value 1, to allow the first child
-    // to lock them
-    semunlockall(semid, 3);
+    *clk_s = 0;
+    *clk_n = 0;
+    *shmPID = 0;
 
-    while (max_count++ < max) {
+    while (max_count < 100 && *clk_s < 2) {
         // check if interrupt happened
         if (earlyquit) {
             earlyquithandler();
             break; // stop spawning children
         }
-        while (conc_count >= conc) {
-            // don't create any more children if at concurrency limit
-            waitforanychild(conc_count);
+        if (conc_count < conc) {
+            // "oss_child"
+            forkexec("oss_child", conc_count);
+            max_count++;
         }
-        // "palin id semid"
-        forkexec("palin " + std::to_string(startid+max_count-1) +\
-                 " " + std::to_string(semid), conc_count);
         // check if any children have exited
-        updatechildcount(conc_count);
+        if (*shmPID != 0) {
+            std::cout << "Master: Child pid " << *shmPID << "is terminating";
+            std::cout << " at system clock time " << *clk_s << "." << *clk_n;
+            std::cout << "\n";
+            waitforanychild(conc_count);
+            *shmPID = 0;
+        }
+        *clk_n += 100;
+        while (*clk_n > 1e9) {
+            *clk_n -= 1e9;
+            *clk_s += 1;
+        }
+        //std::cout << "Time: " << *clk_s << "." << *clk_n << "\n";
     }
     // reached maximum total children. Wait for all remaining to quit
     while (conc_count > 0) {
@@ -115,7 +116,13 @@ void main_loop(int max, int conc, char* infile) {
             earlyquithandler();
         }
         // wait for all children to terminate
-        waitforanychild(conc_count);
+        if (*shmPID != 0) {
+            std::cout << "Master: Child pid " << *shmPID << "is terminating";
+            std::cout << " at system clock time " << *clk_s << "." << *clk_n;
+            std::cout << "\n";
+            waitforanychild(conc_count);
+            *shmPID = 0;
+        }
     }
 
     // release all shared memory created
@@ -130,38 +137,20 @@ int main(int argc, char **argv) {
     setupprefix(argv[0]);
 
     // parse runtime arguments
-    int opts[3] = {4, 2, 100}; // defaults for max, conc, max_time
+    std::vector<std::string> opts{"5", "", "20"};
     bool flags[1] = {false};   // only -h flag for this program
-    int optind = getcliarg(argc, argv, "nst", "h", opts, flags);
+    int optind = getcliarg(argc, argv, "clt", "h", opts, flags);
 
     // local variables
     // parsed variables and flags are stored in opts and flags arrays
-    int max = opts[0];
-    int conc = opts[1];
-    int max_time = opts[2];
-    // FILE is the last argument, but testopts() will check that this is
-    // actually the case
-    char* infile = argv[argc-1];
+    int conc = std::stoi(opts[0]);
+    const char* logfile = opts[1].c_str(); // needs to be -l FILE
+    int max_time = std::stoi(opts[2]);
     // this line will terminate the program if any options are mis-set
-    testopts(argc, argv, optind, max, conc, max_time, flags);
+    testopts(argc, argv, optind, conc, logfile,  max_time, flags);
     // set up kill timer
-    alarm(max_time);
-    // internal file id for output.log
-    int logid = add_outfile_append("output.log");
-    // output.log << "Started job 'FILE' (n=N, s=S, t=T)"
-    writeline(logid, std::string("Started job '") + std::string(infile) +\
-            std::string("' (n=") + std::to_string(max) +\
-            std::string(", s=") + std::to_string(conc) +\
-            std::string(", t=") + std::to_string(max_time) +\
-            std::string(")"));
-    // spawn children, do work
-    main_loop(max, conc, infile);
-    // output appropriate termination message to log
-    if (earlyquit) {
-        writeline(logid, "Process terminated before completion");
-    } else {
-        writeline(logid, "Complete!");
-    }
+    //alarm(max_time);
+    main_loop(conc, logfile);
 
     return 0;
 }
