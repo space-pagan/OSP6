@@ -6,6 +6,7 @@
 #include <sys/ipc.h>            //ftok(), IPC_CREAT, IPC_EXCL
 #include <sys/shm.h>            //shmget(), shmat(), shmdt(), shmctl()
 #include <sys/sem.h>            //semget(), semop(), semctl()
+#include <sys/msg.h>            //msgget(), msgsnd(), msgrcv(), msgctl()
 #include <string>               //string
 #include <cstring>              //strcpy()
 #include <set>                  //set
@@ -18,10 +19,9 @@ std::set<int> shmsegments;
 std::set<int> semaphores;
 std::set<int> msgqueues;
 
-struct msgbuf {
+struct msgbuffer {
     long mtype;
-    char* mtext;
-}
+};
 
 key_t getkeyfromid(int key_id) {
     // returns a valid key for allocating shared objects
@@ -200,17 +200,19 @@ int msglookupid(int key_id) {
     return msqid;
 }
 
-void msgsend(std::string msg, int key_id) {
-    struct msgbuf buf;
+void msgsend(int key_id) {
+    struct msgbuffer buf;
     buf.mtype = 1; //this really doesn't matter
-    buf.mtext = msg.c_str();
-    if (msgsnd(msglookup(key_id), &buf, msg.size()+1, 0) == -1) perrandquit();
+    if (msgsnd(msglookupid(key_id), &buf, 0, 0) == -1) perrandquit();
 }
 
-std::string msgreceive(int key_id) {
-    struct msgbuf buf;
-    if (msgrcv(msglookup(key_id), &buf, 128, 0, 0) == -1) perrandquit();
-    return std::string(buf.mtext);
+void msgreceive(int key_id) {
+    struct msgbuffer buf;
+    if (msgrcv(msglookupid(key_id), &buf, 0, 0, 0) == -1) perrandquit();
+}
+
+void msgdestroy(int key_id) {
+    if (msgctl(msglookupid(key_id), IPC_RMID, NULL) == -1) perrandquit();
 }
 
 void ipc_cleanup() {

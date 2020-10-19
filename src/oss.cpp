@@ -17,6 +17,7 @@
                                  //    ipc_cleanup()
 #include "help_handler.h"        //printhelp()
 #include "file_handler.h"        //add_outfile_append(), writeline()
+#include "sys_clk.h"             //struct clk
 
 // variables used in interrupt handling
 volatile bool earlyquit = false;
@@ -74,56 +75,45 @@ void testopts(int argc, char** argv, int optind, int& conc, \
 void main_loop(int conc, const char* logfile) {
     int max_count = 0;    //count of children created
     int conc_count = 0;   //count of currently running children
-    int currID = 0;
-    int* clk_s = (int*)shmcreate(sizeof(int), currID);
-    int* clk_n = (int*)shmcreate(sizeof(int), currID);
+    int currID = 0;       //value of next unused ftok id
+    int logid = add_outfile_append(logfile); //log stream id
+
+    // create shared clock
+    clk* shclk = (clk*)shmcreate(sizeof(clk), currID);
+    // create shm object for children to put their PID before terminating
     int* shmPID = (int*)shmcreate(sizeof(int), currID);
-    int semid = semcreate(1, currID);
+    msgcreate(currID);    //instantiate message queue
+    int msqid = currID-1; //save the id for future messaging
 
-    *clk_s = 0;
-    *clk_n = 0;
-    *shmPID = 0;
-    semunlock(semid, 0);
+    *shmPID = 0;          //ensure this is zeroed before creating children
+    msgsend(msqid);       //critical section unlocked
 
-    while (max_count < 100 && *clk_s < 2) {
+    while (max_count < 100 && shclk->tofloat() < 2) {
         // check if interrupt happened
         if (earlyquit) {
             earlyquithandler();
             break; // stop spawning children
         }
         if (conc_count < conc) {
-            // "oss_child"
-            int zeropad = 9 - std::to_string(*clk_n).size();
-            int pid = forkexec("oss_child " + std::to_string(semid), \
-                               conc_count);
-            std::cout << "Master: Creating new child pid " << pid;
-            std::cout << " at my time " << *clk_s << ".";
-            while (zeropad--) std::cout << "0";
-            std::cout << *clk_n << "\n";
+            int pid = forkexec("oss_child", conc_count);
+            writeline(logid, "Master: Creating new child pid " +\
+                    std::to_string(pid) + " at my time " + shclk->tostring());
             max_count++;
         }
         // check if any children have exited
         if (*shmPID != 0) {
-            int zeropad = 9 - std::to_string(*clk_n).size();
-            std::cout << "Master: Child pid " << *shmPID << " is terminating";
-            std::cout << " at system clock time " << *clk_s << ".";
-            while (zeropad--) std::cout << "0";
-            std::cout << *clk_n << "\n";
-            waitforanychild(conc_count);
+            writeline(logid, "Master: Child pid " + std::to_string(*shmPID) +\
+                    " is terminating at system clock time "+shclk->tostring());
+            waitforchildpid(*shmPID, conc_count);
             *shmPID = 0;
-            semunlock(semid, 0);
+            msgsend(msqid);
         }
-        *clk_n += 300;
-        while (*clk_n > 1e9) {
-            *clk_n -= 1e9;
-            *clk_s += 1;
-        }
-        //std::cout << "Time: " << *clk_s << "." << *clk_n << "\n";
+        shclk->inc(2200);
     }
-    // reached maximum total children. Wait for all remaining to quit
-    killallchildren();
+    // reached termination conditions. Kill all children and quit.
     while (conc_count > 0) {
-        waitforanychild(conc_count);
+        killallchildren();
+        updatechildcount(conc_count); //waitforanychild was hanging
     }
 
     std::cout << "Terminated after running " << max_count << " threads...\n";

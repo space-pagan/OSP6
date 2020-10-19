@@ -129,6 +129,24 @@ int waitforanychild(int& pr_count) {
     }
 }
 
+int waitforchildpid(int pid, int& pr_count) {
+    // waits for a child with PID to exit and decrements pr_count
+    int wstatus;
+    pid_t pid_exit;
+    switch((pid_exit = waitpid(pid, &wstatus, 0))) {
+        case -1:
+            // waitpid() failed. Print the error and terminate.
+            perrandquit();
+            return -1;
+        default:
+            // the child terminated. Remove it from PIDS and decrement
+            // external pr_count, before returning the child exit status
+            PIDS.erase(pid);
+            pr_count--;
+            return wstatus;
+    }
+}
+
 void killallchildren() {
     // sends SIGTERM to any PID in the PIDS vector
     for (int p : PIDS) 
