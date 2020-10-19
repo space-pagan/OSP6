@@ -54,12 +54,12 @@ void freeargv(char** argv, int size) {
     delete[] argv;
 }
 
-void forkexec(std::string cmd, int& pr_count) {
+int forkexec(std::string cmd, int& pr_count) {
     // alias if cmd is a std::string instead of a char*
-    forkexec(cmd.c_str(), pr_count);
+    return forkexec(cmd.c_str(), pr_count);
 }
 
-void forkexec(const char* cmd, int& pr_count) {
+int forkexec(const char* cmd, int& pr_count) {
     // fork a child process, equivalent to running cmd in bash
     // and increment external pr_count
     int child_argc;
@@ -70,14 +70,14 @@ void forkexec(const char* cmd, int& pr_count) {
         case -1:
             // fork() failed. Print the error and terminate.
             perrandquit();
-            return;
+            return -1;
         case 0:
             // fork() succeeded. Only the child process runs this section
             if (execvp(child_argv[0], child_argv) == -1) {
                 customerrorquit("Unable to exec '" +\
                         std::string(child_argv[0]) + "'");
             }
-            return; // not reachable but gcc complains if its not there
+            return 0; // not reachable but gcc complains if its not there
         default:
             // fork() succeeded. Add child pid to list in case we need to
             // terminate children with killallchildren()
@@ -85,7 +85,7 @@ void forkexec(const char* cmd, int& pr_count) {
             PIDS.insert(child_pid);
             pr_count++;
             freeargv(child_argv, child_argc);
-            return;
+            return child_pid;
     }
 }
 
@@ -132,6 +132,6 @@ int waitforanychild(int& pr_count) {
 void killallchildren() {
     // sends SIGTERM to any PID in the PIDS vector
     for (int p : PIDS) 
-        if (kill(p, SIGTERM) == -1) 
+        if (kill(p, SIGINT) == -1) 
             perrandquit();
 }

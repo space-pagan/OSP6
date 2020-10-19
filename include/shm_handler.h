@@ -13,6 +13,10 @@ void semunlock(int semid, int semnum);
 void semunlockall(int semid, int semsize);
 void semlockall(int semid, int semsize);
 void semdestroy(int semid);
+void msgcreate(int& key_id);
+int msglookupid(int key_id);
+void msgsend(std::string msg, int key_id);
+std::string msgreceive(int key_id);
 void ipc_cleanup();
 
 #endif

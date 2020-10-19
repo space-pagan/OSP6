@@ -78,10 +78,12 @@ void main_loop(int conc, const char* logfile) {
     int* clk_s = (int*)shmcreate(sizeof(int), currID);
     int* clk_n = (int*)shmcreate(sizeof(int), currID);
     int* shmPID = (int*)shmcreate(sizeof(int), currID);
+    int semid = semcreate(1, currID);
 
     *clk_s = 0;
     *clk_n = 0;
     *shmPID = 0;
+    semunlock(semid, 0);
 
     while (max_count < 100 && *clk_s < 2) {
         // check if interrupt happened
@@ -91,18 +93,27 @@ void main_loop(int conc, const char* logfile) {
         }
         if (conc_count < conc) {
             // "oss_child"
-            forkexec("oss_child", conc_count);
+            int zeropad = 9 - std::to_string(*clk_n).size();
+            int pid = forkexec("oss_child " + std::to_string(semid), \
+                               conc_count);
+            std::cout << "Master: Creating new child pid " << pid;
+            std::cout << " at my time " << *clk_s << ".";
+            while (zeropad--) std::cout << "0";
+            std::cout << *clk_n << "\n";
             max_count++;
         }
         // check if any children have exited
         if (*shmPID != 0) {
-            std::cout << "Master: Child pid " << *shmPID << "is terminating";
-            std::cout << " at system clock time " << *clk_s << "." << *clk_n;
-            std::cout << "\n";
+            int zeropad = 9 - std::to_string(*clk_n).size();
+            std::cout << "Master: Child pid " << *shmPID << " is terminating";
+            std::cout << " at system clock time " << *clk_s << ".";
+            while (zeropad--) std::cout << "0";
+            std::cout << *clk_n << "\n";
             waitforanychild(conc_count);
             *shmPID = 0;
+            semunlock(semid, 0);
         }
-        *clk_n += 100;
+        *clk_n += 300;
         while (*clk_n > 1e9) {
             *clk_n -= 1e9;
             *clk_s += 1;
@@ -110,20 +121,12 @@ void main_loop(int conc, const char* logfile) {
         //std::cout << "Time: " << *clk_s << "." << *clk_n << "\n";
     }
     // reached maximum total children. Wait for all remaining to quit
+    killallchildren();
     while (conc_count > 0) {
-        // check if interrupt happened
-        if (earlyquit) {
-            earlyquithandler();
-        }
-        // wait for all children to terminate
-        if (*shmPID != 0) {
-            std::cout << "Master: Child pid " << *shmPID << "is terminating";
-            std::cout << " at system clock time " << *clk_s << "." << *clk_n;
-            std::cout << "\n";
-            waitforanychild(conc_count);
-            *shmPID = 0;
-        }
+        waitforanychild(conc_count);
     }
+
+    std::cout << "Terminated after running " << max_count << " threads...\n";
 
     // release all shared memory created
     ipc_cleanup();

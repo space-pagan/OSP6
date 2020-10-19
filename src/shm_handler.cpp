@@ -16,6 +16,12 @@
 // store references to all created shared memory objects for easier cleanup
 std::set<int> shmsegments;
 std::set<int> semaphores;
+std::set<int> msgqueues;
+
+struct msgbuf {
+    long mtype;
+    char* mtext;
+}
 
 key_t getkeyfromid(int key_id) {
     // returns a valid key for allocating shared objects
@@ -180,6 +186,33 @@ void semdestroy(int semid) {
     if (semctl(semid, 0, IPC_RMID) == -1) perrandquit();
 }
 
+void msgcreate(int& key_id) {
+    int msqid = msgget(getkeyfromid(key_id++), IPC_CREAT|IPC_EXCL|0660);
+    // desired msg queue could not be created, throw error
+    if (msqid == -1) perrandquit();
+    // save shmid for easier cleanup
+    msgqueues.insert(msqid);
+}
+
+int msglookupid(int key_id) {
+    int msqid = msgget(getkeyfromid(key_id), 0660);
+    if (msqid == -1) perrandquit();
+    return msqid;
+}
+
+void msgsend(std::string msg, int key_id) {
+    struct msgbuf buf;
+    buf.mtype = 1; //this really doesn't matter
+    buf.mtext = msg.c_str();
+    if (msgsnd(msglookup(key_id), &buf, msg.size()+1, 0) == -1) perrandquit();
+}
+
+std::string msgreceive(int key_id) {
+    struct msgbuf buf;
+    if (msgrcv(msglookup(key_id), &buf, 128, 0, 0) == -1) perrandquit();
+    return std::string(buf.mtext);
+}
+
 void ipc_cleanup() {
     // destroys all ipc objects created by this process (that were saved)
     // and clears shmsegments and semaphores sets
@@ -193,7 +226,10 @@ void ipc_cleanup() {
         if (shmctl(shmid, IPC_RMID, NULL) == -1) perrandquit();
     for (int semid : semaphores)
         if (semctl(semid, 0, IPC_RMID) == -1) perrandquit();
-    
+    for (int msqid : msgqueues)
+        if (msgctl(msqid, IPC_RMID, NULL) == -1) perrandquit();
+
     shmsegments.clear();
     semaphores.clear();
+    msgqueues.clear();
 }
