@@ -55,10 +55,10 @@ void clk::dec(int ns) {
 
 float clk::nextrand(int maxns) {
     clk copy;
-    (&copy)->clk_s = this->clk_s;
-    (&copy)->clk_n = this->clk_n;
-    (&copy)->inc(rand() % maxns);
-    return (&copy)->tofloat();
+    copy.clk_s = this->clk_s;
+    copy.clk_n = this->clk_n;
+    copy.inc(rand() % maxns);
+    return copy.tofloat();
 }
 
 #endif
