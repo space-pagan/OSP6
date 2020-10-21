@@ -14,9 +14,7 @@
 volatile bool earlyquit = false;
 
 void signalhandler(int signum) {
-    if (signum == SIGINT) {
-        earlyquit = true;
-    }
+    exit(-1); // child does not create any ipc, safe to just kill
 }
 
 int main(int argc, char **argv) {
@@ -33,12 +31,10 @@ int main(int argc, char **argv) {
     // calculate a random future time to terminate
     float stop = shclk->nextrand(1e6);
     // busy-wait until stop time, or if SIGINT
-    while (shclk->tofloat() < stop && !earlyquit);
-    if (!earlyquit) { // don't do critical section if SIGINT
-        // critical section
-        msgreceive(2);
-        *shmPID = getpid();
-    }
+    while (shclk->tofloat() < stop);
+    // critical section
+    msgreceive(2);
+    *shmPID = getpid();
 
     // cleanup
     shmdetach(shclk);

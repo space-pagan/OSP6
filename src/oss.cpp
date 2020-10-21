@@ -59,7 +59,7 @@ void testopts(int argc, char** argv, int optind, int& conc, \
 
     if (!strcmp(logfile, "")) custerrhelpprompt(
             "-l FILE is a required argument!");
-    if (argc > optind+1) custerrhelpprompt(
+    if (argc > optind) custerrhelpprompt(
             "Unknown argument '" + std::string(argv[optind]) + "'");
     // inappropriate values for -c, -t
     if (conc < 1) custerrhelpprompt(
