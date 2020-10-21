@@ -1,5 +1,6 @@
-/* Author: Zoya Samsonov
- * Date: October 6, 2020
+/* Author:      Zoya Samsonov
+ * Created:     October 15, 2020
+ * Last edit:   October 21, 2020
  */
 
 #include <iostream>          //cout, cerr
@@ -26,14 +27,18 @@ int main(int argc, char **argv) {
     // set seed for rand()
     srand(getpid());
 
+    // attach to shared memory
     clk* shclk = (clk*)shmlookup(0);
     int* shmPID = (int*)shmlookup(1);
-
+    // calculate a random future time to terminate
     float stop = shclk->nextrand(1e6);
-
+    // busy-wait until stop time, or if SIGINT
     while (shclk->tofloat() < stop && !earlyquit);
-    msgreceive(2);
-    *shmPID = getpid();
+    if (!earlyquit) { // don't do critical section if SIGINT
+        // critical section
+        msgreceive(2);
+        *shmPID = getpid();
+    }
 
     // cleanup
     shmdetach(shclk);

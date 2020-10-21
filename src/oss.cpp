@@ -1,20 +1,21 @@
- /* Author: Zoya Samsonov
-  * Date: October 6, 2020
-  */
+/* Author:      Zoya Samsonov
+ * Created:     September 9, 2020
+ * Last edit:   October 21, 2020
+ */
 
 #include <iostream>              //cout
-#include <string>                //string
+#include <string>                //std::string
 #include <cstring>               //strcmp()
 #include <unistd.h>              //alarm()
 #include <csignal>               //signal()
-#include <vector>                //vector
+#include <vector>                //std::vector
 #include "cli_handler.h"         //getcliarg()
 #include "child_handler.h"       //forkexec(), updatechildcount()
-                                 //    waitforanychild(), killallchildren()
+                                 //    waitforchildpid(), killallchildren()
 #include "error_handler.h"       //setupprefix(), perrquit(), 
                                  //    custerrhelpprompt()
-#include "shm_handler.h"         //shmfromfile(), semcreate(), semunlockall()
-                                 //    ipc_cleanup()
+#include "shm_handler.h"         //shmcreate(), shmdetach(), msgcreate()
+                                 //    msgsend()
 #include "help_handler.h"        //printhelp()
 #include "file_handler.h"        //add_outfile_append(), writeline()
 #include "sys_clk.h"             //struct clk
@@ -88,37 +89,54 @@ void main_loop(int conc, const char* logfile) {
     *shmPID = 0;          //ensure this is zeroed before creating children
     msgsend(msqid);       //critical section unlocked
 
-    while (max_count < 100 && shclk->tofloat() < 2) {
+    // term cond after 100 children or shclk >= 2 seconds
+    //while (max_count < 100 && shclk->tofloat() < 2) {
+    while (shclk->tofloat() < 2) {
         // check if interrupt happened
         if (earlyquit) {
             earlyquithandler();
             break; // stop spawning children
         }
-        if (conc_count < conc) {
+        // check if more concurrent children can be started
+        if (conc_count < conc && max_count < 100) {
             int pid = forkexec("oss_child", conc_count);
+            // log creation of child
             writeline(logid, "Master: Creating new child pid " +\
                     std::to_string(pid) + " at my time " + shclk->tostring());
             max_count++;
         }
         // check if any children have exited
         if (*shmPID != 0) {
+            // log termination of child
             writeline(logid, "Master: Child pid " + std::to_string(*shmPID) +\
                     " is terminating at system clock time "+shclk->tostring());
             waitforchildpid(*shmPID, conc_count);
-            *shmPID = 0;
-            msgsend(msqid);
+            *shmPID = 0;        // reset to 0 for next child to set
+            msgsend(msqid);     // unlock critical section for next child
         }
-        shclk->inc(2200);
+        // break out if reached child limit and all have already exited
+        if (max_count == 100 && conc_count == 0) break;
+        shclk->inc(2800);       // simulate increase of time
     }
     // reached termination conditions. Kill all children and quit.
     while (conc_count > 0) {
         killallchildren();
-        updatechildcount(conc_count); //waitforanychild was hanging
+        if (int pid = updatechildcount(conc_count)) {
+            // log pid of force-killed children
+            writeline(logid, "Master: Child pid " + std::to_string(pid) +\
+                    " forcefully terminated at system clock time " +\
+                    shclk->tostring());
+        }
     }
 
-    std::cout << "Terminated after running " << max_count << " threads...\n";
+    // log termination info
+    writeline(logid, "Master: Terminated after running " +\
+            std::to_string(max_count) + " threads and system clock time " +\
+            shclk->tostring());
 
     // release all shared memory created
+    shmdetach(shclk);
+    shmdetach(shmPID);
     ipc_cleanup();
 }
 
@@ -142,8 +160,8 @@ int main(int argc, char **argv) {
     // this line will terminate the program if any options are mis-set
     testopts(argc, argv, optind, conc, logfile,  max_time, flags);
     // set up kill timer
-    //alarm(max_time);
+    alarm(max_time);
     main_loop(conc, logfile);
-
+    // done
     return 0;
 }

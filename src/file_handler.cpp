@@ -1,5 +1,6 @@
-/* Author: Zoya Samsonov
- * Date: October 6, 2020
+/* Author:      Zoya Samsonov
+ * Created:     October 6, 2020
+ * Last edit:   October 10, 2020
  */
 
 #include <fstream>           //ofstream, ifstream

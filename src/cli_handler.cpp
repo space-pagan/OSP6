@@ -1,5 +1,6 @@
-/* Author: Zoya Samsonov
- * Date: October 6, 2020
+/* Author:      Zoya Samsonov
+ * Created:     September 9, 2020
+ * Last edit:   October 16, 2020
  */
 
 #include <unistd.h>             //getopt()

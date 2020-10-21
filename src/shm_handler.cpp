@@ -1,5 +1,6 @@
-/* Author: Zoya Samsonov
- * Date: October 6, 2020
+/* Author:      Zoya Samsonov
+ * Created:     October 6, 2020
+ * Last edit:   October 21, 2020
  */
 
 #include <sys/types.h>          //key_t
@@ -187,37 +188,49 @@ void semdestroy(int semid) {
 }
 
 void msgcreate(int& key_id) {
+    // attempt to create a message queue at key_id
     int msqid = msgget(getkeyfromid(key_id++), IPC_CREAT|IPC_EXCL|0660);
     // desired msg queue could not be created, throw error
     if (msqid == -1) perrandquit();
-    // save shmid for easier cleanup
+    // save msqid for easier cleanup
     msgqueues.insert(msqid);
 }
 
 int msglookupid(int key_id) {
+    // attempt to find an existing message queue at key_id and return its
+    // internal id if found
     int msqid = msgget(getkeyfromid(key_id), 0660);
     if (msqid == -1) perrandquit();
     return msqid;
 }
 
 void msgsend(int key_id) {
-    struct msgbuffer buf;
-    buf.mtype = 1; //this really doesn't matter
+    // send a zero-length message to a message queue at key_id
+    // this should generally succeed so long as a message queue exists
+    struct msgbuffer buf; // sacrificial buffer struct
+    buf.mtype = 1; // required to be > 0, any value works here
     if (msgsnd(msglookupid(key_id), &buf, 0, 0) == -1) perrandquit();
 }
 
 void msgreceive(int key_id) {
-    struct msgbuffer buf;
+    // reads first available zero-length message from the msg queue at key_id
+    // if no message is present in the queue, the calling process will block
+    // until a message is received.
+    // In general, this call should succeed so long as a msg queue exists
+    struct msgbuffer buf; // sacrificial buffer struct
     if (msgrcv(msglookupid(key_id), &buf, 0, 0, 0) == -1) perrandquit();
 }
 
 void msgdestroy(int key_id) {
+    // attempt to destroy the message queue at key_id.
+    // If key_id is invalid or the calling process is not the owner of
+    // the message queue, this call will fail and the process will terminate
     if (msgctl(msglookupid(key_id), IPC_RMID, NULL) == -1) perrandquit();
 }
 
 void ipc_cleanup() {
     // destroys all ipc objects created by this process (that were saved)
-    // and clears shmsegments and semaphores sets
+    // and clears shmsegments, semaphores, and msgqueues sets
     // NOTE: This will not remove any ipc objects created manually by the
     // process outside of this library
     

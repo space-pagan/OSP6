@@ -1,5 +1,6 @@
-/* Author: Zoya Samsonov
- * Date: October 6, 2020
+/* Author:      Zoya Samsonov
+ * Created:     September 9, 2020
+ * Last edit:   October 21, 2020
  */
 
 #include <sys/types.h>           //pid_t
@@ -60,8 +61,8 @@ int forkexec(std::string cmd, int& pr_count) {
 }
 
 int forkexec(const char* cmd, int& pr_count) {
-    // fork a child process, equivalent to running cmd in bash
-    // and increment external pr_count
+    // fork a child process, equivalent to running cmd in the shell
+    // and increment external pr_count. Return PID of forked child
     int child_argc;
     // convert cmd to argv format
     char** child_argv = makeargv(cmd, child_argc);
@@ -70,7 +71,7 @@ int forkexec(const char* cmd, int& pr_count) {
         case -1:
             // fork() failed. Print the error and terminate.
             perrandquit();
-            return -1;
+            return -1; // not reachable but gcc complains if its not there
         case 0:
             // fork() succeeded. Only the child process runs this section
             if (execvp(child_argv[0], child_argv) == -1) {
@@ -85,7 +86,7 @@ int forkexec(const char* cmd, int& pr_count) {
             PIDS.insert(child_pid);
             pr_count++;
             freeargv(child_argv, child_argc);
-            return child_pid;
+            return child_pid; // return the PID of the created child
     }
 }
 
@@ -104,10 +105,10 @@ int updatechildcount(int& pr_count) {
             return 0;
         default:
             // a child has terminated. Remove it from PIDS and decrement
-            // external pr_count, before returning the child exit status
+            // external pr_count, before returning the pid of the exited child
             PIDS.erase(pid);
             pr_count--;
-            return wstatus;
+            return pid;
     }
 }
 
@@ -122,10 +123,10 @@ int waitforanychild(int& pr_count) {
             return -1; // unreachable but gcc complains if its not there
         default:
             // a child has terminated. Remove it from PIDS and decrement
-            // external pr_count, before returning the child exit status
+            // external pr_count, before returning the pid of the exited child
             PIDS.erase(pid);
             pr_count--;
-            return wstatus;
+            return pid;
     }
 }
 
@@ -140,10 +141,10 @@ int waitforchildpid(int pid, int& pr_count) {
             return -1;
         default:
             // the child terminated. Remove it from PIDS and decrement
-            // external pr_count, before returning the child exit status
+            // external pr_count, before returning the pid of the exited child 
             PIDS.erase(pid);
             pr_count--;
-            return wstatus;
+            return pid;
     }
 }
 

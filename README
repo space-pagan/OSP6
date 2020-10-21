@@ -1,26 +1,31 @@
 Author: Zoya Samsonov
-Date: October 6, 2020
+Date: October 20, 2020
 
 Compilation:
 	The Makefile for this project will create the following:
-		bin/master
-		bin/palin
+		bin/oss
+		bin/oss_child
 	
 		The default recipe 'make' will build both of these executables.
 		'make clean' will delete obj/ and bin/, including all files within
 		'make cleanrun' will delete bin/*.out and bin/*.log
 
 Running the program:
-	master [-n N] [-s S] [-t T] [-h] FILE
-		-n N	Sets the maximum number of non-blank lines to process from FILE,
-					defaults to 4
+	oss [-c x] [-t z] [-l log] [-h]
+		-c x	Sets the maximum number of concurrent child processes.
+					defaults to 5, Hard-limited to 20
 
-		-s S	Sets the maximum number of concurrent child processes.
-					defaults to 2, Hard-limited to 20
-
-		-t T	Sets the timeout period. After T seconds have passed, master
+		-t z	Sets the timeout period. After z seconds have passed, oss
 					and all child processes will be terminated.
-					defaults to 100
+					defaults to 20
+                    
+        -l log  Sets the output log file for the program. If the file exists,
+                    output is appended to the log. If the file does not exist
+                    oss will create the file with the provided name. If no
+                    log is specified, the program will present an error
+                    message and terminate
+
+        -h      Prints the manpage-styled internal help dialogue
 
 Version Control:
 	This project's version control has been managed under git. For a log of
@@ -30,18 +35,12 @@ Outstanding Problems:
 	None, to my knowledge.
 
 Encountered Difficulties:
-	The only major issues have been setting up shared memory, as it took me
-	some time to realize that it is very difficult to create a two-dimensional
-	shared memory object. Additionally, I ran into issues storing stream
-	objects in a vector due to a bug in gcc 4.8.5, even though this behaviour
-	is legal and defined by the C++11 standard.
+    None worth mentionining
 
 Bugtesting efforts:
-	Multiple test files (tests/*.test) with varied behaviour
-	Manual early termination of master with ^C
-	Automated early termination of master with -t
 	Various combinations of CLI arguments to test CLI Parsing
-	Giving invalid names for FILE
-	removing palin from bin/ directory
+    Various options to -c x to test concurrency and mutual exclusion
+    Program always completes in under 1 second so testing of automated
+        timeout is impractical without introducing sleep() calls
 
 	Everything appears to work without issue.
