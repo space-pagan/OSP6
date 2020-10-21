@@ -1,23 +1,23 @@
 Author: Zoya Samsonov
-Date: October 20, 2020
+Date: October 21, 2020
 
 Compilation:
-	The Makefile for this project will create the following:
-		bin/oss
-		bin/oss_child
-	
-		The default recipe 'make' will build both of these executables.
-		'make clean' will delete obj/ and bin/, including all files within
-		'make cleanrun' will delete bin/*.out and bin/*.log
+    The Makefile for this project will create the following:
+        bin/oss
+        bin/oss_child
+    
+        The default recipe 'make' will build both of these executables.
+        'make clean' will delete obj/ and bin/, including all files within
+        'make cleanrun' will delete bin/*.out and bin/*.log
 
 Running the program:
-	oss [-c x] [-t z] [-l log] [-h]
-		-c x	Sets the maximum number of concurrent child processes.
-					defaults to 5, Hard-limited to 20
+    oss [-c x] [-t z] [-l log] [-h]
+        -c x    Sets the maximum number of concurrent child processes.
+                    defaults to 5, Hard-limited to 20
 
-		-t z	Sets the timeout period. After z seconds have passed, oss
-					and all child processes will be terminated.
-					defaults to 20
+        -t z    Sets the timeout period. After z seconds have passed, oss
+                    and all child processes will be terminated.
+                    defaults to 20
                     
         -l log  Sets the output log file for the program. If the file exists,
                     output is appended to the log. If the file does not exist
@@ -28,19 +28,19 @@ Running the program:
         -h      Prints the manpage-styled internal help dialogue
 
 Version Control:
-	This project's version control has been managed under git. For a log of
-	modifications, use 'git log', and its various options.
+    This project's version control has been managed under git. For a log of
+    modifications, use 'git log', and its various options.
 
 Outstanding Problems:
-	None, to my knowledge.
+    None, to my knowledge.
 
 Encountered Difficulties:
     None worth mentionining
 
 Bugtesting efforts:
-	Various combinations of CLI arguments to test CLI Parsing
+    Various combinations of CLI arguments to test CLI Parsing
     Various options to -c x to test concurrency and mutual exclusion
     Program always completes in under 1 second so testing of automated
         timeout is impractical without introducing sleep() calls
 
-	Everything appears to work without issue.
+    Everything appears to work without issue.
