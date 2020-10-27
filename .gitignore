@@ -1,11 +1,7 @@
 bin/
 obj/
 
-*.o
 *.out
 *.log
 *_debug*
-
-oss
-oss_child
 *.test
