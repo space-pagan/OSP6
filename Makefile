@@ -3,8 +3,8 @@ OBJ_DIR := obj
 BIN_DIR := bin
 
 EXE1 := $(BIN_DIR)/oss
-FIL1 := $(OBJ_DIR)/oss_child.o
-EXE2 := $(BIN_DIR)/oss_child
+EXE2 := $(BIN_DIR)/user
+FIL1 := $(OBJ_DIR)/user.o
 FIL2 := $(OBJ_DIR)/oss.o
 SRC  := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ  := $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
