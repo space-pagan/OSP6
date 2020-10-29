@@ -11,8 +11,9 @@
 #include <vector>                //vector
 #include <set>                   //set
 #include <string>                //string
-#include <cstring>               //strcpy
-#include "error_handler.h"       //perrandquit
+#include <cstring>               //strcpy()
+#include <sys/stat.h>            //stat()
+#include "error_handler.h"       //perrandquit()
 #include "child_handler.h"       //function defs for self
 
 std::set<pid_t> PIDS;
@@ -154,3 +155,4 @@ void killallchildren() {
         if (kill(p, SIGINT) == -1) 
             perrandquit();
 }
+

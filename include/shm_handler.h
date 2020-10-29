@@ -1,6 +1,8 @@
 #ifndef SHM_HANDLER_H
 #define SHM_HANDLER_H
 
+#include <sys/types.h>
+
 void* shmcreate(size_t bytes, int& key_id);
 void* shmlookup(int key_id);
 void shmdetach(const void* shmptr);

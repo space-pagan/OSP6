@@ -1,6 +1,8 @@
 #ifndef FILE_HANDLER_H
 #define FILE_HANDLER_H
 
+#include <string>
+
 int add_outfile(const char* name);
 int add_outfile_append(const char* name);
 int add_infile(const char* name);

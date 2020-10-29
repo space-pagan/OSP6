@@ -54,3 +54,10 @@ void custerrhelpprompt(std::string error) {
     // alias in case error is of type std::string
     custerrhelpprompt(error.c_str());
 }
+
+void pathdeperror() {
+    customerrorquit(
+        std::string("One or more dependentent binaries is ") +\
+        std::string("missing, please ensure that you are ") +\
+        std::string("running the program from a valid path!\n"));
+}

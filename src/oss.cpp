@@ -10,8 +10,10 @@
 #include <csignal>               //signal()
 #include <vector>                //std::vector
 #include <bitset>                //std::bitset
+#include "cli_handler.h"         //parserunpath()
 #include "child_handler.h"       //forkexec(), updatechildcount()
                                  //    waitforchildpid(), killallchildren()
+                                 //    getdeppath()
 #include "error_handler.h"       //setupprefix(), perrquit(), 
                                  //    custerrhelpprompt()
 #include "shm_handler.h"         //shmcreate(), shmdetach(), msgcreate()
@@ -48,7 +50,7 @@ void earlyquithandler() {
     }
 }
 
-void main_loop(int conc, const char* logfile) {
+void main_loop(int conc, const char* logfile, const char* runpath) {
     int max_count = 0;    //count of children created
     int conc_count = 0;   //count of currently running children
     int currID = 0;       //value of next unused ftok id
@@ -66,10 +68,14 @@ void main_loop(int conc, const char* logfile) {
     // create MLFQ object
     mlfq schedqueue;
 
+    std::cout << "Run Path: " << runpath << "\n";
+
     if (schedqueue.isEmpty()) {
         pcb proc(currPID);
         schedqueue.queues[0].push_back(&proc);
+        schedqueue.moveToNextPriority(&proc);
     }
+    schedqueue.printQueues();
 
     // release all shared memory created
     shmdetach(shclk);
@@ -77,19 +83,22 @@ void main_loop(int conc, const char* logfile) {
     ipc_cleanup();
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     // register SIGINT (^C) and SIGALRM with signal handler
     signal(SIGINT, signalhandler);
     signal(SIGALRM, signalhandler);
     // set perror to display the correct program name
-    setupprefix(argv[0]);
+    std::string runpath, pref;
+    parserunpath(argv, runpath, pref);
+    setupprefix(pref.c_str());
+    if (!pathdepcheck(runpath, "user")) pathdeperror();
 
     int conc = 18;
     const char* logfile = "output.log"; 
     int max_time = 3;
     // set up kill timer
     alarm(max_time);
-    main_loop(conc, logfile);
+    main_loop(conc, logfile, runpath.c_str());
     // done
     return 0;
 }

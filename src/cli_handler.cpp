@@ -8,6 +8,7 @@
 #include <cstring>              //strlen()
 #include <sstream>              //ostringstream
 #include <vector>               //std::vector
+#include <sys/stat.h>           //stat()
 #include "error_handler.h"      //custerrhelpprompt()
 #include "cli_handler.h"        //Self func defs
 
@@ -72,4 +73,23 @@ int getcliarg(int argc, char** argv, const char* options, \
     }
     // tell main how many arguments in argv have been parsed
     return optind;
+}
+
+void parserunpath(char** argv, std::string& runpath, std::string& pref) {
+    std::string rawpath = argv[0];
+    size_t split = rawpath.rfind('/')+1;
+    if (split != 0) {
+        runpath = rawpath.substr(0, split);
+        pref = rawpath.substr(split);
+    } else {
+        runpath = std::string("./");
+        pref = std::string(argv[0]);
+    }
+}
+
+bool pathdepcheck(std::string runpath, std::string depname) {
+    struct stat buffer;
+    std::string depcheck = runpath + depname;
+    if (stat(depcheck.c_str(), &buffer) == 0) return true;
+    return false;
 }
