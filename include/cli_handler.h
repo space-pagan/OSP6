@@ -9,5 +9,6 @@ int getcliarg(int argc, char** argv, const char* options, \
         bool* flagout);
 
 void parserunpath(char** argv, std::string& runpath, std::string& pref);
+bool pathdepcheck(std::string runpath, std::string depname);
 
 #endif

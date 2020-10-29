@@ -11,6 +11,5 @@ int updatechildcount(int& pr_count);
 int waitforanychild(int& pr_count);
 int waitforchildpid(int pid, int& pr_count);
 void killallchildren();
-bool pathdepcheck(std::string runpath, std::string depname);
 
 #endif
