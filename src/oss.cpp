@@ -21,7 +21,7 @@
 #include "help_handler.h"        //printhelp()
 #include "file_handler.h"        //add_outfile_append(), writeline()
 #include "sys_clk.h"             //struct clk
-#include "scheduling.h"                 //struct pcb
+#include "sched_handler.h"       //mlfq and pcb structs
 
 // variables used in interrupt handling
 volatile bool earlyquit = false;
