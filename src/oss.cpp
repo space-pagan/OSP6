@@ -61,25 +61,28 @@ void main_loop(int conc, const char* logfile, const char* runpath) {
     float nextSpawnTime;
     // create shared clock
     clk* shclk = (clk*)shmcreate(sizeof(clk), currID);
-    // create shared pcb table
-    pcb* pcbtable = (pcb*)shmcreate(sizeof(pcb)*18, currID);
-    // pcbtable bitmap for currently used pcb's
-    std::bitset<18> bitmap(0);
     // create MLFQ object
     mlfq schedqueue;
+    schedqueue.pcbtable = (pcb*)shmcreate(sizeof(pcb)*18, currID);
 
-    std::cout << "Run Path: " << runpath << "\n";
-
-    if (schedqueue.isEmpty()) {
-        pcb proc(currPID);
-        schedqueue.queues[0].push_back(&proc);
-        schedqueue.moveToNextPriority(&proc);
-    }
+    // placeholder test of mlfq
+    schedqueue.addProc();
+    schedqueue.addProc();
+    schedqueue.addProc();
+    schedqueue.addProc();
+    schedqueue.moveToNextPriority(&schedqueue.pcbtable[0]);
+    schedqueue.moveToNextPriority(&schedqueue.pcbtable[0]);
+    schedqueue.moveToNextPriority(schedqueue.getFirstProc());
+    schedqueue.moveToBlocked(&schedqueue.pcbtable[3]);
+    schedqueue.moveToNextPriority(&schedqueue.pcbtable[2]);
+    schedqueue.moveToNextPriority(&schedqueue.pcbtable[2]);
+    schedqueue.moveToNextPriority(&schedqueue.pcbtable[2]);
+    schedqueue.moveToExpired(&schedqueue.pcbtable[2]);
     schedqueue.printQueues();
 
     // release all shared memory created
     shmdetach(shclk);
-    shmdetach(pcbtable);
+    shmdetach(schedqueue.pcbtable);
     ipc_cleanup();
 }
 
