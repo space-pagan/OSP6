@@ -36,97 +36,157 @@ void signalhandler(int signum) {
     }
 }
 
-// ignore nested interrupts, only need to quit once :)
-void earlyquithandler() {
-    if (!handlinginterrupt) {
-        handlinginterrupt = true;
-        killallchildren(); //child_handler.h
-        // print message to indicate reason for termination
-        if (quittype == SIGINT) {
-            std::cerr << "SIGINT received! Terminating...\n";
-        } else if (quittype == SIGALRM) {
-            std::cerr << "Timeout limit exceeded! Terminating...\n";
-        }
-    }
-}
-
 void main_loop(int conc, const char* logfile, std::string runpath) {
     int max_count = 0;    //count of children created
     int conc_count = 0;   //count of currently running children
     int currID = 0;       //value of next unused ftok id
-    int logid = add_outfile_append((runpath + logfile).c_str()); //log stream id
+    int logid = add_outfile_append(runpath + logfile); //log stream id
     int maxBTWs = 2;      //maximum seconds between new procs
     int maxBTWns = 0;     //maximum nanosec between new procs
-    float nextSpawnTime = 0;
+    srand(getpid());      //set random seed;
     // create shared clock
     clk* shclk = (clk*)shmcreate(sizeof(clk), currID);
+    float nextSpawnTime = shclk->nextrand(maxBTWs * 1e9 + maxBTWns);
     // create MLFQ object
-    mlfq schedqueue;
-    schedqueue.pcbtable = (pcb*)shmcreate(sizeof(pcb)*18, currID);
+    mlfq schq;
+    schq.pcbtable = (pcb*)shmcreate(sizeof(pcb)*18, currID);
     msgcreate(currID);
+    pcbmsgbuf* msg = new pcbmsgbuf;
+    pcb* proc; // object for the currently handled pcb to reduce code length
     
-    while (max_count < 100 && !earlyquit) {
-        // check if any procs have unblocked
-        std::cout << "Checking blocked\n";
-        pcbmsgbuf* msg = msgrecwithdatanw(2, -1); 
-        if (msg->data[2] == 3) {
-            std::cout << "Unblocking pcb#" << msg->data[0] << "\n";
-            schedqueue.moveToNextPriority(&schedqueue.pcbtable[msg->data[0]]);
+    while (!earlyquit) {
+        if (schq.isEmpty() && max_count >= 100) {
+            // if no active or blocked procs and no more procs can be spawned
+            // end simulation
+            earlyquit = true;
+        } else {
+            // otherwise, jump clock to next spawn time
+            if (shclk->tofloat() < nextSpawnTime) shclk->set(nextSpawnTime);
         }
 
-        // schedule new proc if correct time
-        if (shclk->tofloat() >= nextSpawnTime) {
-            std::cout << "Spawning at time " << shclk->tostring() << "\n";
-            int pcbnum = schedqueue.addProc();
-            if (pcbnum != -1) {
-                forkexec(runpath + "user " + std::to_string(pcbnum), conc_count); 
-                std::cout << "pcb #" << pcbnum << "\n";
-                max_count++;
-                msgsendwithdata(2, pcbnum+2, pcbnum, schedqueue.quantuums[schedqueue.pcbtable[pcbnum].PRIORITY], 0); // qid, pcbnum, timeslicens, status
-                nextSpawnTime = shclk->nextrand(maxBTWs * 1e9 + maxBTWns);
-                std::cout << "Next spawn at " << nextSpawnTime << "\n";
+        int pcbnum = -1;
+        if (!schq.blocked.empty()) {
+            // check if any procs have unblocked
+            // only receive messages with mtype = 2 (reserved for unblock msgs)
+            msg->mtype = 2; 
+            // do not wait if no messages present in queue
+            if (msgreceivenw(2, msg)) {
+                // increment clock to represent work done to unblock a process
+                // (should be more than regular dispatch increment)
+                shclk->inc(1000 + rand() % 19901);
+                // a message was present, unblock the pcb
+                proc = &schq.pcbtable[msg->data[PCBNUM]];
+                writeline(logid, shclk->tostring() + ": Unblocking PID " +
+                    std::to_string(proc->PID));
+                schq.moveToNextPriority(proc);
             }
-        } else { // schedule top priority proc
-            std::cout << "Scheduling first proc\n";
-            pcb* proc;
-            if ((proc = schedqueue.getFirstProc()) != NULL) {
+        }
+
+        // schedule new proc if correct time and available slot
+        // maximum new children to spawn is 100, after that just dispatch
+        if ((max_count < 100) && (shclk->tofloat() >= nextSpawnTime) && 
+               ((pcbnum = schq.addProc()) != -1)) {
+            // slot was available, fork and exec process
+            proc = &schq.pcbtable[pcbnum];
+            forkexec(
+                runpath + "user " + std::to_string(pcbnum), conc_count); 
+            writeline(logid, shclk->tostring() + ": Spawning PID " +
+                std::to_string(proc->PID) + " (" + std::to_string(++max_count)
+                + "/100)");
+            // generate appropriate message and send
+            msg->mtype = pcbnum + 3;
+            msg->data[PCBNUM] = pcbnum;
+            msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
+            msgsend(2, msg);
+            // update time to attempt to spawn next proc
+            nextSpawnTime = shclk->nextrand(maxBTWs * 1e9 + maxBTWns);
+            writeline(logid, "\tNext spawn at " + 
+                std::to_string(nextSpawnTime));
+        } else {
+            // try to dispatch the first active (not blocked) process
+            if ((proc = schq.getFirstProc()) != NULL) {
+                // incrememnt the clock by a random amount between 100 and 
+                // 10000ns to indicate work done to schedule the process
+                shclk->inc(100 + rand() % 9901);
+                pcbnum = proc->PCBTABLEPOS;
+                // queues are not empty, dispatch a process
+                msg->mtype = pcbnum + 3;
+                msg->data[PCBNUM] = pcbnum;
                 if (proc->TIMESLICENS == 0) {
-                    msgsendwithdata(2, proc->PCBTABLEPOS+2, proc->PCBTABLEPOS, schedqueue.quantuums[proc->PRIORITY], 0);
+                    // allowed to use entire quantuum
+                    msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
                 } else {
-                    msgsendwithdata(2, proc->PCBTABLEPOS+2, proc->PCBTABLEPOS, proc->TIMESLICENS, 0);
+                    // some quantuum used before being blocked, only
+                    // schedule for remainder of time
+                    msg->data[TIMESLICE] = proc->TIMESLICENS;
                 }
-            } else {
-                std::cout << "No procs to schedule\n";
+                writeline(logid, shclk->tostring() + ": Scheduling PID " +
+                    std::to_string(proc->PID) + " with quantuum " +
+                    std::to_string(msg->data[TIMESLICE]) + "ns");
+                msgsend(2, msg);
             }
         }
 
         // if proc(s) are scheduled, wait for response 
-        if (schedqueue.bitmap != 0) {
-            std::cout << "Waiting on message\n";
-            msg = msgreceivewithdata(2, -1);
-            if (msg->data[2] == 0) {// is terminating
-                std::cout << "Child " << msg->data[0] << " terminating\n";
-                schedqueue.moveToExpired(&schedqueue.pcbtable[msg->data[0]]);
-                schedqueue.printQueues();
+        if (pcbnum != -1) {
+            proc = &schq.pcbtable[pcbnum];
+            // only receive messages intended for oss
+            msg->mtype = 1;
+            // wait for the scheduled process if no message
+            msgreceive(2, msg);
+            shclk->inc(msg->data[TIMESLICE]);
+            writeline(logid, shclk->tostring() + ": Message received after " +
+                std::to_string(msg->data[TIMESLICE]) + "ns");
+            // process received information
+            if (msg->data[STATUS] == TERM) {
+                writeline(logid, shclk->tostring() + ": PID " + 
+                    std::to_string(proc->PID) + " terminating");
+                // process is terminating, move to expired queue and collect
+                schq.moveToExpired(proc);
                 waitforanychild(conc_count);
-                shclk->inc(msg->data[1]);
-            } else if (msg->data[2] == 1) { // used entire quantuum, running
-                std::cout << "Child " << msg->data[0] << " moved to next Q\n";
-                schedqueue.moveToNextPriority(&schedqueue.pcbtable[msg->data[0]]);
-                schedqueue.printQueues();
-                shclk->inc(msg->data[1]);
-            } else if (msg->data[2] == 2) { // blocked after using some time
-                std::cout << "Child " << msg->data[0] << " blocked\n";
-                schedqueue.pcbtable[msg->data[0]].TIMESLICENS = 
-                    schedqueue.quantuums[schedqueue.pcbtable[msg->data[0]].PRIORITY] -
-                    msg->data[1];
-                schedqueue.moveToBlocked(&schedqueue.pcbtable[msg->data[0]]);
-                shclk->inc(msg->data[1]);
+            } else if (msg->data[STATUS] == RUN) {
+                writeline(logid, shclk->tostring() + ": Moving PID " +
+                    std::to_string(proc->PID) + " to priority queue " +
+                    std::to_string(proc->PRIORITY + 1));
+                // used entire quantuum or remaining timeslice,
+                // move to next priority queue
+                schq.moveToNextPriority(proc);
+                // reset to allow entire use of next quantuum
+                proc->TIMESLICENS = 0;
+            } else if (msg->data[STATUS] == 2) {
+                // blocked after using some time, move to blocked queue
+                // and set timeslice variable for when it unblocks
+
+                /*
+                 * ASK MARK ABOUT HOW TIMESLICE INFO SHOULD BE SAVED
+                 */
+                
+                if (proc->TIMESLICENS == 0) {
+                    proc->TIMESLICENS = schq.quantuums[proc->PRIORITY] -
+                        msg->data[TIMESLICE];
+                } else {
+                    proc->TIMESLICENS -= msg->data[TIMESLICE];
+                }
+                writeline(logid, shclk->tostring() + ": Moving PID " +
+                    std::to_string(proc->PID) + " to blocked queue, with " +
+                    "remaining quantuum " + std::to_string(proc->TIMESLICENS)
+                    + "ns");
+                schq.moveToBlocked(proc);
             }
         }
-        shclk->inc(1e9 + (long)rand() % (long)1e9);
+        shclk->inc(rand() % (long)1e9);
+    }
+
+    // log reason for termination
+    if (quittype == SIGINT) {
+        writeline(logid, shclk->tostring() + ": Simulation terminated due to "
+            + "SIGINT received");
+    } else if (quittype == SIGALRM) {
+        writeline(logid, shclk->tostring() + ": Simulation terminated due to "
+            + "reaching end of allotted time");
     }
     
+    // remove all child processes
     while (conc_count > 0) {
         killallchildren();
         updatechildcount(conc_count);
@@ -134,7 +194,7 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
 
     // release all shared memory created
     shmdetach(shclk);
-    shmdetach(schedqueue.pcbtable);
+    shmdetach(schq.pcbtable);
     ipc_cleanup();
 }
 

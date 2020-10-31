@@ -103,17 +103,13 @@ void mlfq::moveToExpired(pcb* proc) { // move an active proc to expired list
 void mlfq::printQueues() { // for debugging
     std::cout << "Bitmap:  " << this->bitmap << "\n";
     std::cout << "Blocked: ";
-    for (auto proc : this->blocked) std::cout << "P" << proc->PID << ", ";
-    std::cout << "\nQueue 1: ";
-    for (auto proc : this->queues[0]) std::cout << "P" << proc->PID << ", ";
-    std::cout << "\nQueue 2: ";
-    for (auto proc : this->queues[1]) std::cout << "P" << proc->PID << ", ";
-    std::cout << "\nQueue 3: ";
-    for (auto proc : this->queues[2]) std::cout << "P" << proc->PID << ", ";
-    std::cout << "\nQueue 4: ";
-    for (auto proc : this->queues[3]) std::cout << "P" << proc->PID << ", ";
+    for (auto proc : this->blocked) std::cout << proc->PID << ", ";
+    for (int i = 0; i < 4; i++){
+        std::cout << "\nQueue " << i << ": ";
+        for (auto proc : this->queues[i]) std::cout << proc->PID << ", ";
+    }
     std::cout << "\nExpired: ";
-    for (auto proc : this->expired) std::cout << "P" << proc->PID << ", ";
+    for (auto proc : this->expired) std::cout << proc->PID << ", ";
     std::cout << "\n";
 }
 

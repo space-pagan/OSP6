@@ -3,6 +3,9 @@
 
 #include <sys/types.h>
 
+enum Data { PCBNUM, TIMESLICE, STATUS };
+enum Status { TERM, RUN, BLOCK, UBLOCK };
+
 struct pcbmsgbuf {
     long mtype;
     int data[3];
@@ -23,9 +26,14 @@ void semdestroy(int semid);
 void msgcreate(int& key_id);
 int msglookupid(int key_id);
 void msgsend(int key_id);
-void msgsendwithdata(int key_id, int mtype, int pcbnum, int timeslicens, int status);
-pcbmsgbuf* msgreceivewithdata(int key_id, int pcbnum);
-pcbmsgbuf* msgrecwithdatanw(int key_id, int pcbnum);
+void msgsend(int key_id, int mtype);
+void msgsend(int key_id, pcbmsgbuf* buf);
+void msgreceive(int key_id);
+void msgreceive(int key_id, int mtype);
+void msgreceive(int key_id, pcbmsgbuf* buf);
+bool msgreceivenw(int key_id);
+bool msgreceivenw(int key_id, int mtype);
+bool msgreceivenw(int key_id, pcbmsgbuf* buf);
 void msgreceive(int key_id);
 void ipc_cleanup();
 

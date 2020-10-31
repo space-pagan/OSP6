@@ -28,6 +28,10 @@ int add_outfile(const char* name) {
     return outfiles.size() - 1; // count from 0
 }
 
+int add_outfile_append(std::string name) {
+    return add_outfile_append(name.c_str());
+}
+
 int add_outfile_append(const char* name) {
     // open a file for writing in append mode, and add to list of currently
     // open output files

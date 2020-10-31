@@ -212,13 +212,20 @@ void msgsend(int key_id) {
     if (msgsnd(msglookupid(key_id), &buf, 0, 0) == -1) perrandquit();
 }
 
-void msgsendwithdata(int key_id, int mtype, int pcbnum, int timeslicens, int status) {
-    struct pcbmsgbuf buf;
+void msgsend(int key_id, int mtype) {
+    // send a zero-length message to a message queue at key_id
+    // with a specific mtype. This should generally succeed so long
+    // as a message queue exists
+    struct msgbuffer buf;
     buf.mtype = mtype;
-    buf.data[0] = pcbnum;
-    buf.data[1] = timeslicens;
-    buf.data[2] = status;
-    if (msgsnd(msglookupid(key_id), &buf, sizeof(buf.data), 0) == -1) 
+    if (msgsnd(msglookupid(key_id), &buf, 0, 0) == -1) perrandquit();
+}
+
+void msgsend(int key_id, pcbmsgbuf* buf) {
+    // send a message containing the structure buf to a message queue
+    // at key_id with a specific mtype. This should generally succeed so long
+    // as a message queue exists.
+    if (msgsnd(msglookupid(key_id), buf, sizeof(buf->data), 0) == -1)
         perrandquit();
 }
 
@@ -231,11 +238,70 @@ void msgreceive(int key_id) {
     if (msgrcv(msglookupid(key_id), &buf, 0, 0, 0) == -1) perrandquit();
 }
 
-pcbmsgbuf* msgreceivewithdata(int key_id, int pcbnum) {
-    struct pcbmsgbuf* buf = new pcbmsgbuf;
-    if (msgrcv(msglookupid(key_id), buf, sizeof(buf->data), pcbnum+2, 0) == -1)
-        perrandquit();
-    return buf;
+void msgreceive(int key_id, int mtype) {
+    // reads the first message with mtype from the message queue at key_id
+    // if no message with specified mtype is present in the queue, the calling 
+    // process will block until a message is received.
+    // In general, this call should succeed so long as a msg queue exists
+    struct msgbuffer buf; // sacrificial buffer struct
+    if (msgrcv(msglookupid(key_id), &buf, 0, mtype, 0) == -1) perrandquit();
+}
+
+void msgreceive(int key_id, pcbmsgbuf* buf) {
+    // reads the first message with mtype specified by buf->mtype from the
+    // message queue at key_id. If no message with specified mtype is present
+    // in the queue, the calling proccess will block until a message is
+    // received.
+    // In general, this call should succeed so long as a msg queue exists
+    if (msgrcv(
+        msglookupid(key_id), buf, sizeof(buf->data), buf->mtype, 0) == -1)
+            perrandquit();
+}
+
+bool msgreceivenw(int key_id) {
+    // reads first available zero-length message from the msg queue at key_id
+    // The calling process will not wait for a message if none is present
+    // In general, this call should succeed so long as a msg queue exists
+    struct msgbuffer buf; // sacrificial buffer struct
+    if (msgrcv(msglookupid(key_id), &buf, 0, 0, IPC_NOWAIT) == -1) {
+        if (errno != ENOMSG) {
+            perrandquit();
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool msgreceivenw(int key_id, int mtype) {
+    // reads the first message with mtype from the message queue at key_id
+    // The calling process will not wait for a message if none is present
+    // In general, this call should succeed so long as a msg queue exists
+    struct msgbuffer buf; // sacrificial buffer struct
+    if (msgrcv(msglookupid(key_id), &buf, 0, mtype, IPC_NOWAIT) == -1) {
+        if (errno != ENOMSG) {
+            perrandquit();
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool msgreceivenw(int key_id, pcbmsgbuf* buf) {
+    // reads the first message with mtype specified by buf->mtype from the
+    // message queue at key_id. The calling process will not wait for a 
+    // message if none is present
+    // In general, this call should succeed so long as a msg queue exists
+    if (msgrcv(msglookupid(key_id), buf, sizeof(buf->data), 
+               buf->mtype, IPC_NOWAIT) == -1) {
+        if (errno != ENOMSG) {
+            perrandquit();
+        } else {
+            return false;
+        }
+    }
+    return true;
 }
 
 pcbmsgbuf* msgrecwithdatanw(int key_id, int pcbnum) {

@@ -5,8 +5,8 @@
 #include <string>               //std::string, to_string()
 
 struct clk{
-    int clk_s;
-    int clk_n;
+    long clk_s;
+    long clk_n;
 
     clk() {
         clk_s = 0;
@@ -15,13 +15,15 @@ struct clk{
 
     float tofloat();
     std::string tostring();
-    void inc(double ns);
-    void dec(double ns);
-    float nextrand(int maxns);
+    void set(float time);
+    void set(std::string time);
+    void inc(long ns);
+    void dec(long ns);
+    float nextrand(long maxns);
 };
 
 float clk::tofloat() {
-    return (float)this->clk_s + (float)this->clk_n/(float)1e9;
+    return this->clk_s + (float)this->clk_n/(float)1e9;
 }
 
 std::string clk::tostring() {
@@ -33,7 +35,17 @@ std::string clk::tostring() {
     return repr + std::to_string(this->clk_n);
 }
 
-void clk::inc(double ns) {
+void clk::set(float time) {
+    this->clk_s = (long)time;
+    this->clk_n = (long)((time - this->clk_s) * 1e9);
+}
+
+void clk::set(std::string time) {
+    float ftime = std::stof(time);
+    this->set(ftime);
+}
+
+void clk::inc(long ns) {
     this->clk_n += ns;
     while (this->clk_n > 1e9) {
         this->clk_n -= 1e9;
@@ -41,7 +53,7 @@ void clk::inc(double ns) {
     }
 }
 
-void clk::dec(double ns) {
+void clk::dec(long ns) {
     this->clk_n -= ns;
     while (this->clk_n < 0) {
         this->clk_n += 1e9;
@@ -53,7 +65,7 @@ void clk::dec(double ns) {
     }
 }
 
-float clk::nextrand(int maxns) {
+float clk::nextrand(long maxns) {
     clk copy;
     copy.clk_s = this->clk_s;
     copy.clk_n = this->clk_n;

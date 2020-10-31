@@ -4,6 +4,7 @@
 #include <string>
 
 int add_outfile(const char* name);
+int add_outfile_append(std::string name);
 int add_outfile_append(const char* name);
 int add_infile(const char* name);
 int readline(int filenum, std::string& outstr);
