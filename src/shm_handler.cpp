@@ -212,6 +212,16 @@ void msgsend(int key_id) {
     if (msgsnd(msglookupid(key_id), &buf, 0, 0) == -1) perrandquit();
 }
 
+void msgsendwithdata(int key_id, int mtype, int pcbnum, int timeslicens, int status) {
+    struct pcbmsgbuf buf;
+    buf.mtype = mtype;
+    buf.data[0] = pcbnum;
+    buf.data[1] = timeslicens;
+    buf.data[2] = status;
+    if (msgsnd(msglookupid(key_id), &buf, sizeof(buf.data), 0) == -1) 
+        perrandquit();
+}
+
 void msgreceive(int key_id) {
     // reads first available zero-length message from the msg queue at key_id
     // if no message is present in the queue, the calling process will block
@@ -219,6 +229,21 @@ void msgreceive(int key_id) {
     // In general, this call should succeed so long as a msg queue exists
     struct msgbuffer buf; // sacrificial buffer struct
     if (msgrcv(msglookupid(key_id), &buf, 0, 0, 0) == -1) perrandquit();
+}
+
+pcbmsgbuf* msgreceivewithdata(int key_id, int pcbnum) {
+    struct pcbmsgbuf* buf = new pcbmsgbuf;
+    if (msgrcv(msglookupid(key_id), buf, sizeof(buf->data), pcbnum+2, 0) == -1)
+        perrandquit();
+    return buf;
+}
+
+pcbmsgbuf* msgrecwithdatanw(int key_id, int pcbnum) {
+    struct pcbmsgbuf* buf = new pcbmsgbuf;
+    buf->data[2] = -1;
+    if (msgrcv(msglookupid(key_id), buf, sizeof(buf->data), pcbnum+2, IPC_NOWAIT) == -1 && errno != ENOMSG)
+        perrandquit();
+    return buf;
 }
 
 void msgdestroy(int key_id) {

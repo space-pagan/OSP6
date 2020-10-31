@@ -15,8 +15,8 @@ struct clk{
 
     float tofloat();
     std::string tostring();
-    void inc(int ns);
-    void dec(int ns);
+    void inc(double ns);
+    void dec(double ns);
     float nextrand(int maxns);
 };
 
@@ -33,7 +33,7 @@ std::string clk::tostring() {
     return repr + std::to_string(this->clk_n);
 }
 
-void clk::inc(int ns) {
+void clk::inc(double ns) {
     this->clk_n += ns;
     while (this->clk_n > 1e9) {
         this->clk_n -= 1e9;
@@ -41,7 +41,7 @@ void clk::inc(int ns) {
     }
 }
 
-void clk::dec(int ns) {
+void clk::dec(double ns) {
     this->clk_n -= ns;
     while (this->clk_n < 0) {
         this->clk_n += 1e9;

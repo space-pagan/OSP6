@@ -15,6 +15,7 @@ struct pcb{
     float BURST_TIME;
     int PID;
     int PRIORITY;
+    int TIMESLICENS;
     int PCBTABLEPOS;
 
     pcb(int& extPID, int POS) {
@@ -24,6 +25,7 @@ struct pcb{
         BURST_TIME = 0;
         PID = extPID++; // PID must be unique, increment external value
         PRIORITY = 0;
+        TIMESLICENS = 0;
         PCBTABLEPOS = POS;
     }
 
@@ -33,6 +35,7 @@ struct pcb{
         BURST_TIME = old.BURST_TIME;
         PID = old.PID;
         PRIORITY = old.PRIORITY;
+        TIMESLICENS = old.TIMESLICENS;
         PCBTABLEPOS = old.PCBTABLEPOS;
     }
 };
@@ -44,10 +47,7 @@ struct mlfq{
     std::list<pcb*> blocked; // blocked Q
     std::list<pcb*> queues[4]; // Q1-Q4
     std::list<pcb*> expired; // expired list, not really used
-    int T1 = 10000; // timeslice for Q1
-    int T2 = 20000; // timeslice for Q2
-    int T3 = 40000; // timeslice for Q3
-    int T4 = 80000; // timeslice for Q4
+    int quantuums[4] = {10000, 20000, 40000, 80000};
     int PID = 0; // value of next unused PID
 
     int addProc();

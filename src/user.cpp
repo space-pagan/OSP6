@@ -10,6 +10,7 @@
 #include "error_handler.h"   //setupprefix()
 #include "file_handler.h"    //add_outfile_append(), writeline()
 #include "sys_clk.h"         //struct clk
+#include "sched_handler.h"   //struct pcb
 
 volatile bool earlyquit = false;
 
@@ -23,21 +24,26 @@ int main(int argc, char **argv) {
     // set up perror prefix
     setupprefix(argv[0]);
     // set seed for rand()
-    srand(getpid());
-
-    // attach to shared memory
     clk* shclk = (clk*)shmlookup(0);
-    int* shmPID = (int*)shmlookup(1);
-    // calculate a random future time to terminate
-    float stop = shclk->nextrand(1e6);
-    // busy-wait until stop time, or if SIGINT
-    while (shclk->tofloat() < stop);
-    // critical section
-    msgreceive(2);
-    *shmPID = getpid();
+    //pcb* pcbtable = (pcb*)shmlookup(1);
+    int pcbnum = std::stoi(argv[1]);
 
-    // cleanup
-    shmdetach(shclk);
-    shmdetach(shmPID);
-    return 0;
+    while(1) {
+        pcbmsgbuf* msg = msgreceivewithdata(2, pcbnum);
+        // decide if terminate
+        if (rand() % 10 < 1) {
+            msgsendwithdata(2, 1, pcbnum, rand() % msg->data[1], 0);
+            //shmdetach
+            return 0;
+        } else {
+            if (rand() % 2) { // use entire quantuum
+                msgsendwithdata(2, 1, pcbnum, msg->data[1], 1);
+            } else { // blocked after some time
+                msgsendwithdata(2, 1, pcbnum, rand() % msg->data[1], 2);
+                float wakeuptime = shclk->nextrand((int)3e9);
+                while (shclk->tofloat() < wakeuptime);
+                msgsendwithdata(2, 1, pcbnum, 0, 3);
+            }
+        }
+    }
 }
