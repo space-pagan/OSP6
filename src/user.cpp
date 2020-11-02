@@ -40,11 +40,6 @@ int main(int argc, char **argv) {
             customerrorquit("pcb#" + std::to_string(pcbnum) +
                 "received message intended for pcb#" + 
                 std::to_string(msg->data[PCBNUM]));
-
-        // std::cout << "Process " << pcbnum << " received message as follows: ";
-        // std::cout << "PCBNUM: " << msg->data[0];
-        // std::cout << ", TIMESLICE: " << msg->data[1];
-        // std::cout << ", STATUS: " << msg->data[2] << "\n";
       
         // prepare to return message
         msg->mtype = 1;

@@ -55,13 +55,17 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
     pcb* proc; // object for the currently handled pcb to reduce code length
     
     while (!earlyquit) {
-        if (schq.isEmpty() && max_count >= 100) {
-            // if no active or blocked procs and no more procs can be spawned
-            // end simulation
-            earlyquit = true;
-        } else {
-            // otherwise, jump clock to next spawn time
-            if (shclk->tofloat() < nextSpawnTime) shclk->set(nextSpawnTime);
+        if (schq.isEmpty()) {
+            if (max_count >= 100) {
+                // if no active or blocked procs and no more procs can be
+                // spawned end simulation
+                earlyquit = true;
+                quittype = 0;
+            } else {
+                // otherwise, jump clock to next spawn time
+                if (shclk->tofloat() < nextSpawnTime)
+                    shclk->set(nextSpawnTime);
+            }
         }
 
         int pcbnum = -1;
@@ -93,46 +97,42 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
             writeline(logid, shclk->tostring() + ": Spawning PID " +
                 std::to_string(proc->PID) + " (" + std::to_string(++max_count)
                 + "/100)");
-            // generate appropriate message and send
+            // update time to attempt to spawn next proc
+            nextSpawnTime = shclk->nextrand(maxBTWs * 1e9 + maxBTWns);
+            if (max_count < 100)
+                writeline(logid, "\tNext spawn at " + 
+                    std::to_string(nextSpawnTime));
+        }
+
+        // try to dispatch the first active (not blocked) process
+        if ((proc = schq.getFirstProc()) != NULL) {
+            // incrememnt the clock by a random amount between 100 and 
+            // 10000ns to indicate work done to schedule the process
+            shclk->inc(100 + rand() % 9901);
+            pcbnum = proc->PCBTABLEPOS;
+            // queues are not empty, dispatch a process
             msg->mtype = pcbnum + 3;
             msg->data[PCBNUM] = pcbnum;
             msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
+            /*
+             * if (proc->TIMESLICENS == 0) {
+             *     // allowed to use entire quantuum
+             *     msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
+             * } else {
+             *     // some quantuum used before being blocked, only
+             *     // schedule for remainder of time
+             *     msg->data[TIMESLICE] = proc->TIMESLICENS;
+             * }
+             */
+            writeline(logid, shclk->tostring() + ": Scheduling PID " +
+                std::to_string(proc->PID) + " with quantuum " +
+                std::to_string(msg->data[TIMESLICE]) + "ns");
             msgsend(2, msg);
-            // update time to attempt to spawn next proc
-            nextSpawnTime = shclk->nextrand(maxBTWs * 1e9 + maxBTWns);
-            writeline(logid, "\tNext spawn at " + 
-                std::to_string(nextSpawnTime));
-        } else {
-            // try to dispatch the first active (not blocked) process
-            if ((proc = schq.getFirstProc()) != NULL) {
-                // incrememnt the clock by a random amount between 100 and 
-                // 10000ns to indicate work done to schedule the process
-                shclk->inc(100 + rand() % 9901);
-                pcbnum = proc->PCBTABLEPOS;
-                // queues are not empty, dispatch a process
-                msg->mtype = pcbnum + 3;
-                msg->data[PCBNUM] = pcbnum;
-                if (proc->TIMESLICENS == 0) {
-                    // allowed to use entire quantuum
-                    msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
-                } else {
-                    // some quantuum used before being blocked, only
-                    // schedule for remainder of time
-                    msg->data[TIMESLICE] = proc->TIMESLICENS;
-                }
-                writeline(logid, shclk->tostring() + ": Scheduling PID " +
-                    std::to_string(proc->PID) + " with quantuum " +
-                    std::to_string(msg->data[TIMESLICE]) + "ns");
-                msgsend(2, msg);
-            }
-        }
 
-        // if proc(s) are scheduled, wait for response 
-        if (pcbnum != -1) {
-            proc = &schq.pcbtable[pcbnum];
+            // wait for response from scheduled proc
             // only receive messages intended for oss
             msg->mtype = 1;
-            // wait for the scheduled process if no message
+            // block until response received
             msgreceive(2, msg);
             shclk->inc(msg->data[TIMESLICE]);
             writeline(logid, shclk->tostring() + ": Message received after " +
@@ -161,12 +161,14 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
                  * ASK MARK ABOUT HOW TIMESLICE INFO SHOULD BE SAVED
                  */
                 
-                if (proc->TIMESLICENS == 0) {
-                    proc->TIMESLICENS = schq.quantuums[proc->PRIORITY] -
-                        msg->data[TIMESLICE];
-                } else {
-                    proc->TIMESLICENS -= msg->data[TIMESLICE];
-                }
+                /*
+                 * if (proc->TIMESLICENS == 0) {
+                 *     proc->TIMESLICENS = schq.quantuums[proc->PRIORITY] -
+                 *         msg->data[TIMESLICE];
+                 * } else {
+                 *     proc->TIMESLICENS -= msg->data[TIMESLICE];
+                 * }
+                 */
                 writeline(logid, shclk->tostring() + ": Moving PID " +
                     std::to_string(proc->PID) + " to blocked queue, with " +
                     "remaining quantuum " + std::to_string(proc->TIMESLICENS)
@@ -184,8 +186,11 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
     } else if (quittype == SIGALRM) {
         writeline(logid, shclk->tostring() + ": Simulation terminated due to "
             + "reaching end of allotted time");
+    } else if (quittype == 0) {
+        writeline(logid, shclk->tostring() + ": Simulation terminated after "
+            + "100 processes were created and naturally terminated");
     }
-    
+
     // remove all child processes
     while (conc_count > 0) {
         killallchildren();
