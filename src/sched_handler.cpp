@@ -3,6 +3,10 @@
  * Last edit:   October 29, 2020 
  */
 
+#include "child_handler.h"
+#include "file_handler.h"
+#include "sys_clk.h"
+#include "shm_handler.h"
 #include "sched_handler.h"
 
 template<size_t T> int findfirstunset(std::bitset<T> bs) {
@@ -113,3 +117,70 @@ void mlfq::printQueues() { // for debugging
     std::cout << "\n";
 }
 
+void unblockreadyproc(mlfq& schq, clk* shclk, int logid) {
+    // check if any procs have unblocked
+    // only receive messages with mtype = 2 (reserved for unblock msgs)
+    pcbmsgbuf* msg = new pcbmsgbuf;
+    msg->mtype = 2; 
+    // do not wait if no messages present in queue
+    if (msgreceivenw(2, msg)) {
+        // increment clock to represent work done to unblock a process
+        // (should be more than regular dispatch increment)
+        shclk->inc(1000 + rand() % 19901);
+        // a message was present, unblock the pcb
+        pcb* proc = &schq.pcbtable[msg->data[PCBNUM]];
+        writeline(logid, shclk->tostring() + ": Unblocking PID " +
+            std::to_string(proc->PID));
+        schq.moveToNextPriority(proc);
+    }
+    delete msg;
+}
+
+void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count) {
+    // incrememnt the clock by a random amount between 100 and 
+    // 10000ns to indicate work done to schedule the process
+    shclk->inc(100 + rand() % 9901);
+    int pcbnum = proc->PCBTABLEPOS;
+    // queues are not empty, dispatch a process
+    pcbmsgbuf* msg = new pcbmsgbuf;
+    msg->mtype = pcbnum + 3;
+    msg->data[PCBNUM] = pcbnum;
+    msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
+    writeline(logid, shclk->tostring() + ": Scheduling PID " +
+        std::to_string(proc->PID) + " with quantuum " +
+        std::to_string(msg->data[TIMESLICE]) + "ns");
+    msgsend(2, msg);
+
+    // wait for response from scheduled proc
+    // only receive messages intended for oss
+    msg->mtype = 1;
+    // block until response received
+    msgreceive(2, msg);
+    shclk->inc(proc->BURST_TIME);
+    proc->CPU_TIME += proc->BURST_TIME;
+    writeline(logid, shclk->tostring() + ": Message received after " +
+        std::to_string(msg->data[TIMESLICE]) + "ns");
+    // process received information
+    if (msg->data[STATUS] == TERM) {
+        writeline(logid, shclk->tostring() + ": PID " + 
+            std::to_string(proc->PID) + " terminating");
+        // process is terminating, move to expired queue and collect
+        schq.moveToExpired(proc);
+        /*
+         * std::cout << "PID " << proc->PID << " terminated: CPU_TIME ";
+         * std::cout << proc->CPU_TIME << " SYS_TIME " << proc->SYS_TIME;
+         * std::cout << " LAST_BURST " << proc->BURST_TIME << "\n";
+         */
+        waitforanychild(conc_count);
+    } else if (msg->data[STATUS] == RUN) {
+        writeline(logid, shclk->tostring() + ": Moving PID " +
+            std::to_string(proc->PID) + " to priority queue " +
+            std::to_string(proc->PRIORITY + 1));
+        schq.moveToNextPriority(proc);
+    } else if (msg->data[STATUS] == 2) {
+        writeline(logid, shclk->tostring() + ": Moving PID " +
+            std::to_string(proc->PID) + " to blocked queue");
+        schq.moveToBlocked(proc);
+    }
+    delete msg;
+}

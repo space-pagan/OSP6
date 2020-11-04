@@ -25,9 +25,9 @@ int main(int argc, char **argv) {
     setupprefix(argv[0]);
     // set seed for rand()
     srand(getpid());
-    // attach shared clock
+    // attach shared memory
     clk* shclk = (clk*)shmlookup(0);
-    //pcb* pcbtable = (pcb*)shmlookup(1);
+    pcb* pcbtable = (pcb*)shmlookup(1);
     int pcbnum = std::stoi(argv[1]);
     pcbmsgbuf* msg = new pcbmsgbuf;
 
@@ -41,30 +41,43 @@ int main(int argc, char **argv) {
                 "received message intended for pcb#" + 
                 std::to_string(msg->data[PCBNUM]));
       
+        if (pcbtable[pcbnum].BLOCK_START != 0) {
+            pcbtable[pcbnum].BLOCK_TIME += 
+                shclk->clk_s * 1e9 + shclk->clk_n -
+                pcbtable[pcbnum].BLOCK_START;
+            pcbtable[pcbnum].BLOCK_START = 0;
+        }
         // prepare to return message
         msg->mtype = 1;
         if (rand() % 10 < 1) { // 1/10 chance to terminate
             // terminating after using a random amount of time
             // generate and send appropriate message
-            msg->data[TIMESLICE] = rand() % msg->data[TIMESLICE];
+            pcbtable[pcbnum].BURST_TIME = rand() % msg->data[TIMESLICE];
             msg->data[STATUS] = TERM;
             msgsend(2, msg);
+            pcbtable[pcbnum].SYS_TIME = 
+                pcbtable[pcbnum].BURST_TIME +
+                shclk->clk_s * 1e9 + shclk->clk_n -
+                pcbtable[pcbnum].INCEPTIME;
             // cleanup and terminate
             shmdetach(shclk);
+            shmdetach(pcbtable);
             exit(0);
         } else {
             // not terminating
             if (rand() % 2) {
                 // use entire quantuum (no need to change data[TIMESLICE])
                 // generate and send approprate message
+                pcbtable[pcbnum].BURST_TIME = msg->data[TIMESLICE];
                 msg->data[STATUS] = RUN;
                 msgsend(2, msg);
             } else {
                 // use some quantuum and get blocked
                 // generate and send appropriate message
-                msg->data[TIMESLICE] = rand() % msg->data[TIMESLICE];
+                pcbtable[pcbnum].BURST_TIME = rand() % msg->data[TIMESLICE];
                 msg->data[STATUS] = BLOCK;
                 msgsend(2, msg);
+                pcbtable[pcbnum].BLOCK_START = shclk->clk_s * 1e9 + shclk->clk_n;
                 // calculate how long to block and then wait
                 float wakeuptime = shclk->nextrand(3e9);
                 while (shclk->tofloat() < wakeuptime);

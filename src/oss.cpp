@@ -51,7 +51,6 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
     mlfq schq;
     schq.pcbtable = (pcb*)shmcreate(sizeof(pcb)*18, currID);
     msgcreate(currID);
-    pcbmsgbuf* msg = new pcbmsgbuf;
     pcb* proc; // object for the currently handled pcb to reduce code length
     
     while (!earlyquit) {
@@ -68,32 +67,20 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
             }
         }
 
-        int pcbnum = -1;
         if (!schq.blocked.empty()) {
-            // check if any procs have unblocked
-            // only receive messages with mtype = 2 (reserved for unblock msgs)
-            msg->mtype = 2; 
-            // do not wait if no messages present in queue
-            if (msgreceivenw(2, msg)) {
-                // increment clock to represent work done to unblock a process
-                // (should be more than regular dispatch increment)
-                shclk->inc(1000 + rand() % 19901);
-                // a message was present, unblock the pcb
-                proc = &schq.pcbtable[msg->data[PCBNUM]];
-                writeline(logid, shclk->tostring() + ": Unblocking PID " +
-                    std::to_string(proc->PID));
-                schq.moveToNextPriority(proc);
-            }
+            unblockreadyproc(schq, shclk, logid);
         }
 
         // schedule new proc if correct time and available slot
         // maximum new children to spawn is 100, after that just dispatch
+        int pcbnum = -1;
         if ((max_count < 100) && (shclk->tofloat() >= nextSpawnTime) && 
                ((pcbnum = schq.addProc()) != -1)) {
             // slot was available, fork and exec process
             proc = &schq.pcbtable[pcbnum];
             forkexec(
                 runpath + "user " + std::to_string(pcbnum), conc_count); 
+            proc->INCEPTIME = shclk->clk_s * 1e9 + shclk->clk_n;
             writeline(logid, shclk->tostring() + ": Spawning PID " +
                 std::to_string(proc->PID) + " (" + std::to_string(++max_count)
                 + "/100)");
@@ -106,75 +93,7 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
 
         // try to dispatch the first active (not blocked) process
         if ((proc = schq.getFirstProc()) != NULL) {
-            // incrememnt the clock by a random amount between 100 and 
-            // 10000ns to indicate work done to schedule the process
-            shclk->inc(100 + rand() % 9901);
-            pcbnum = proc->PCBTABLEPOS;
-            // queues are not empty, dispatch a process
-            msg->mtype = pcbnum + 3;
-            msg->data[PCBNUM] = pcbnum;
-            msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
-            /*
-             * if (proc->TIMESLICENS == 0) {
-             *     // allowed to use entire quantuum
-             *     msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
-             * } else {
-             *     // some quantuum used before being blocked, only
-             *     // schedule for remainder of time
-             *     msg->data[TIMESLICE] = proc->TIMESLICENS;
-             * }
-             */
-            writeline(logid, shclk->tostring() + ": Scheduling PID " +
-                std::to_string(proc->PID) + " with quantuum " +
-                std::to_string(msg->data[TIMESLICE]) + "ns");
-            msgsend(2, msg);
-
-            // wait for response from scheduled proc
-            // only receive messages intended for oss
-            msg->mtype = 1;
-            // block until response received
-            msgreceive(2, msg);
-            shclk->inc(msg->data[TIMESLICE]);
-            writeline(logid, shclk->tostring() + ": Message received after " +
-                std::to_string(msg->data[TIMESLICE]) + "ns");
-            // process received information
-            if (msg->data[STATUS] == TERM) {
-                writeline(logid, shclk->tostring() + ": PID " + 
-                    std::to_string(proc->PID) + " terminating");
-                // process is terminating, move to expired queue and collect
-                schq.moveToExpired(proc);
-                waitforanychild(conc_count);
-            } else if (msg->data[STATUS] == RUN) {
-                writeline(logid, shclk->tostring() + ": Moving PID " +
-                    std::to_string(proc->PID) + " to priority queue " +
-                    std::to_string(proc->PRIORITY + 1));
-                // used entire quantuum or remaining timeslice,
-                // move to next priority queue
-                schq.moveToNextPriority(proc);
-                // reset to allow entire use of next quantuum
-                proc->TIMESLICENS = 0;
-            } else if (msg->data[STATUS] == 2) {
-                // blocked after using some time, move to blocked queue
-                // and set timeslice variable for when it unblocks
-
-                /*
-                 * ASK MARK ABOUT HOW TIMESLICE INFO SHOULD BE SAVED
-                 */
-                
-                /*
-                 * if (proc->TIMESLICENS == 0) {
-                 *     proc->TIMESLICENS = schq.quantuums[proc->PRIORITY] -
-                 *         msg->data[TIMESLICE];
-                 * } else {
-                 *     proc->TIMESLICENS -= msg->data[TIMESLICE];
-                 * }
-                 */
-                writeline(logid, shclk->tostring() + ": Moving PID " +
-                    std::to_string(proc->PID) + " to blocked queue, with " +
-                    "remaining quantuum " + std::to_string(proc->TIMESLICENS)
-                    + "ns");
-                schq.moveToBlocked(proc);
-            }
+            scheduleproc(schq, shclk, proc, logid, conc_count);
         }
         shclk->inc(rand() % (long)1e9);
     }
@@ -190,6 +109,26 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
         writeline(logid, shclk->tostring() + ": Simulation terminated after "
             + "100 processes were created and naturally terminated");
     }
+
+    // PRINT SUMMARY
+    // Average Wait Time            ???
+    // Average CPU Times
+    long long AVGCPU = 0;
+    for (auto proc : schq.expired) {
+        AVGCPU += proc->CPU_TIME;
+    }
+    AVGCPU /= schq.expired.size();
+    std::cout << "Average CPU Utilization per PID (ns): " << AVGCPU << "\n";
+
+    // Average Blocked Queue Times
+    long long AVGBLK = 0;
+    for (auto proc : schq.expired) {
+        AVGBLK  += proc->BLOCK_TIME;
+    }
+    AVGBLK /= schq.expired.size();
+    std::cout << "Average time in Blocked Queue per PID (ns): " << AVGBLK << "\n";
+
+    // Average Idle CPU             ???
 
     // remove all child processes
     while (conc_count > 0) {

@@ -7,35 +7,42 @@
 #include <cstdlib>
 #include <cstring>
 #include "error_handler.h"
+#include "sys_clk.h"
 
 struct pcb{
     /* struct representing a virtual process control block*/
-    float CPU_TIME;
-    float SYS_TIME;
-    float BURST_TIME;
+    long CPU_TIME;
+    long INCEPTIME;
+    long SYS_TIME;
+    long BURST_TIME;
+    long BLOCK_START;
+    long BLOCK_TIME;
     int PID;
     int PRIORITY;
-    int TIMESLICENS;
     int PCBTABLEPOS;
 
     pcb(int& extPID, int POS) {
         /* constructor: default values and set PID */
         CPU_TIME = 0;
+        INCEPTIME = 0;
         SYS_TIME = 0;
         BURST_TIME = 0;
+        BLOCK_START = 0;
+        BLOCK_TIME = 0;
         PID = extPID++; // PID must be unique, increment external value
         PRIORITY = 0;
-        TIMESLICENS = 0;
         PCBTABLEPOS = POS;
     }
 
     pcb(const pcb &old) {
         CPU_TIME = old.CPU_TIME;
+        INCEPTIME = old.INCEPTIME;
         SYS_TIME = old.SYS_TIME;
         BURST_TIME = old.BURST_TIME;
+        BLOCK_START = old.BLOCK_START;
+        BLOCK_TIME = old.BLOCK_TIME;
         PID = old.PID;
         PRIORITY = old.PRIORITY;
-        TIMESLICENS = old.TIMESLICENS;
         PCBTABLEPOS = old.PCBTABLEPOS;
     }
 };
@@ -59,5 +66,8 @@ struct mlfq{
     void moveToExpired(pcb* proc);
     void printQueues();
 };
+
+void unblockreadyproc(mlfq& schq, clk* shclk, int logid);
+void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count);
 
 #endif
