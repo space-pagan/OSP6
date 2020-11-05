@@ -56,7 +56,6 @@ struct mlfq{
     std::list<pcb*> expired; // expired list, not really used
     int quantuums[4] = {10000, 20000, 40000, 80000};
     int PID = 0; // value of next unused PID
-    long IDLE_START = 0; // used for calculating total idle time
     long IDLE_TIME = 0; // time CPU spends with no active proccesses
 
     int addProc();
@@ -71,8 +70,10 @@ struct mlfq{
 };
 
 void unblockreadyproc(mlfq& schq, clk* shclk, int logid);
+void genproc(mlfq& schq, clk* shclk, std::string userargstr, int pcbnum, 
+    int& conc_count, int& max_count, int logid);
 void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count);
 void printsummary(mlfq& schq, clk* shclk, int quittype, 
-      std::string logfile, int logid);
+    std::string logfile, int logid);
 
 #endif

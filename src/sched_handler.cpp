@@ -144,10 +144,17 @@ void unblockreadyproc(mlfq& schq, clk* shclk, int logid) {
     delete msg;
 }
 
-void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count) {
-    // incrememnt the clock by a random amount between 100 and 
-    // 10000ns to indicate work done to schedule the process
-    shclk->inc(100 + rand() % 9901);
+void genproc(mlfq& schq, clk* shclk, std::string userargstr, 
+        int pcbnum, int& conc_count, int& max_count, int logid) {
+    pcb* proc = &schq.pcbtable[pcbnum];
+    forkexec(userargstr + std::to_string(pcbnum), conc_count);
+    proc->INCEPTIME = shclk->clk_s * 1e9 + shclk->clk_n;
+    writeline(logid, shclk->tostring() + ": Spawning PID " +
+        std::to_string(proc->PID) + " (" + std::to_string(++max_count) +
+        "/100)");
+}
+
+void dispatch(mlfq& schq, clk* shclk, pcb* proc, int logid) {
     int pcbnum = proc->PCBTABLEPOS;
     // queues are not empty, dispatch a process
     pcbmsgbuf* msg = new pcbmsgbuf;
@@ -158,16 +165,26 @@ void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count)
         std::to_string(proc->PID) + " with quantuum " +
         std::to_string(msg->data[TIMESLICE]) + "ns");
     msgsend(2, msg);
+    long worktime = 100 + rand() % 9901;
+    // incrememnt the clock by a random amount between 100 and 
+    // 10000ns to indicate work done to schedule the process
+    shclk->inc(worktime);
+    writeline(logid, shclk->tostring() + ": Dispatch took " + 
+        std::to_string(worktime) + " ns");
+    delete msg;
+}
 
+void handledispatched(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count) {
     // wait for response from scheduled proc
     // only receive messages intended for oss
+    pcbmsgbuf* msg = new pcbmsgbuf;
     msg->mtype = 1;
     // block until response received
     msgreceive(2, msg);
     shclk->inc(proc->BURST_TIME);
     proc->CPU_TIME += proc->BURST_TIME;
-    writeline(logid, shclk->tostring() + ": Message received after " +
-        std::to_string(proc->BURST_TIME) + "ns");
+    writeline(logid, shclk->tostring() + ": PID " + std::to_string(proc->PID) +
+        " ran for " + std::to_string(proc->BURST_TIME) + "ns");
     // process received information
     if (msg->data[STATUS] == TERM) {
         writeline(logid, shclk->tostring() + ": PID " + 
@@ -190,12 +207,19 @@ void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count)
             " queue " + std::to_string(proc->PRIORITY + 1));
         schq.moveToNextPriority(proc);
     }
-    delete msg;
 }
 
-void printsummary(mlfq& schq, clk* shclk, int quittype,
-        std::string logfile, int logid) {
-    // PRINT SUMMARY
+void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count) {
+    dispatch(schq, shclk, proc, logid);
+    handledispatched(schq, shclk, proc, logid, conc_count);
+}
+
+void printandlog(std::string summary, int logid) {
+    std::cout << summary << "\n";
+    writeline(logid, summary);
+}
+
+void printTermReason(clk* shclk, int quittype, int logid) {
     // log reason for termination
     std::string summary;
     if (quittype == SIGINT) {
@@ -208,35 +232,58 @@ void printsummary(mlfq& schq, clk* shclk, int quittype,
         summary = shclk->tostring() + ": Simulation terminated after "
             + "100 processes were created and naturally terminated";
     }
-    std::cout << summary << "\n";
-    writeline(logid, summary);
+    printandlog(summary, logid);
+}
 
+void printAVGCPU(mlfq& schq, int logid) {
     // Average CPU Times
     long long AVGCPU = 0;
     for (auto proc : schq.expired) {
         AVGCPU += proc->CPU_TIME;
     }
     AVGCPU /= schq.expired.size();
-    summary = "Average CPU Utilization per PID (ns): " + 
+    std::string summary = "Average CPU Utilization per PID (ns): " + 
         std::to_string(AVGCPU);
-    std::cout << summary << "\n";
-    writeline(logid, summary);
+    printandlog(summary, logid);
+}
 
+void printAVGBLK(mlfq& schq, int logid) {
     // Average Blocked Queue Times
     long long AVGBLK = 0;
     for (auto proc : schq.expired) {
         AVGBLK  += proc->BLOCK_TIME;
     }
     AVGBLK /= schq.expired.size();
-    summary = "Average time in Blocked Queue per PID (ns): " +
+    std::string summary = "Average time in Blocked Queue per PID (ns): " +
         std::to_string(AVGBLK);
-    std::cout << summary << "\n";
-    writeline(logid, summary);
+    printandlog(summary, logid);
+}
 
+void printAVGSYS(mlfq& schq, int logid) {
+    long long AVGSYS = 0;
+    for (auto proc : schq.expired) {
+        AVGSYS += proc->SYS_TIME;
+    }
+    AVGSYS /= schq.expired.size();
+    std::string summary = "Average total time in system per PID (ns): " +
+        std::to_string(AVGSYS);
+    printandlog(summary, logid);
+}
+
+void printAVGIDLE(mlfq& schq, int logid) {
     // Average Idle CPU
-    summary = "Total CPU Idle Time (ns): " + std::to_string(schq.IDLE_TIME);
-    std::cout << summary << "\n";
-    writeline(logid, summary);
+    std::string summary = 
+        "Total CPU Idle Time (ns): " + std::to_string(schq.IDLE_TIME);
+    printandlog(summary, logid);
+}
 
+void printsummary(mlfq& schq, clk* shclk, int quittype,
+        std::string logfile, int logid) {
+    // PRINT SUMMARY
+    printTermReason(shclk, quittype, logid);
+    printAVGCPU(schq, logid);
+    printAVGBLK(schq, logid);
+    printAVGSYS(schq, logid);
+    printAVGIDLE(schq, logid);
     std::cout << "For a complete simulation log, please see " << logfile << "\n";
 }
