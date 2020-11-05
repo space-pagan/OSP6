@@ -65,13 +65,14 @@ int main(int argc, char **argv) {
             exit(0);
         } else {
             // not terminating
-            if (rand() % 2) {
+            int useraction = rand() % 3;
+            if (useraction == 0) {
                 // use entire quantuum (no need to change data[TIMESLICE])
                 // generate and send approprate message
                 pcbtable[pcbnum].BURST_TIME = msg->data[TIMESLICE];
                 msg->data[STATUS] = RUN;
                 msgsend(2, msg);
-            } else {
+            } else if (useraction == 1) {
                 // use some quantuum and get blocked
                 // generate and send appropriate message
                 pcbtable[pcbnum].BURST_TIME = rand() % msg->data[TIMESLICE];
@@ -87,6 +88,13 @@ int main(int argc, char **argv) {
                 msgsend(2, msg);
                 // reset mtype
                 msg->mtype = pcbnum+3;
+            } else if (useraction == 2) {
+                // use some quantuum and get pre-empted to the next queue
+                // generate and send appropriate message
+                pcbtable[pcbnum].BURST_TIME = msg->data[TIMESLICE] / 100 * 
+                    (1 + rand() % 99);
+                msg->data[STATUS] = PREEMPT;
+                msgsend(2, msg);
             }
         }
     }

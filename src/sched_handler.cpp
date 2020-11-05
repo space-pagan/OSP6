@@ -3,6 +3,7 @@
  * Last edit:   October 29, 2020 
  */
 
+#include <csignal>
 #include "child_handler.h"
 #include "file_handler.h"
 #include "sys_clk.h"
@@ -39,6 +40,13 @@ bool mlfq::isEmpty() {
     if (!(this->blocked).empty()) return false;
     for (auto q : this->queues) if (!q.empty()) return false;
     return true;
+}
+
+bool mlfq::anyActive() {
+    /* This function returns whether there are any processes in the active
+     * priority queues at this time */
+    for (auto q : this->queues) if (!q.empty()) return true;
+    return false;
 }
 
 pcb* mlfq::getFirstProc() {
@@ -159,28 +167,76 @@ void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count)
     shclk->inc(proc->BURST_TIME);
     proc->CPU_TIME += proc->BURST_TIME;
     writeline(logid, shclk->tostring() + ": Message received after " +
-        std::to_string(msg->data[TIMESLICE]) + "ns");
+        std::to_string(proc->BURST_TIME) + "ns");
     // process received information
     if (msg->data[STATUS] == TERM) {
         writeline(logid, shclk->tostring() + ": PID " + 
             std::to_string(proc->PID) + " terminating");
         // process is terminating, move to expired queue and collect
         schq.moveToExpired(proc);
-        /*
-         * std::cout << "PID " << proc->PID << " terminated: CPU_TIME ";
-         * std::cout << proc->CPU_TIME << " SYS_TIME " << proc->SYS_TIME;
-         * std::cout << " LAST_BURST " << proc->BURST_TIME << "\n";
-         */
         waitforanychild(conc_count);
     } else if (msg->data[STATUS] == RUN) {
         writeline(logid, shclk->tostring() + ": Moving PID " +
             std::to_string(proc->PID) + " to priority queue " +
             std::to_string(proc->PRIORITY + 1));
         schq.moveToNextPriority(proc);
-    } else if (msg->data[STATUS] == 2) {
+    } else if (msg->data[STATUS] == BLOCK) {
         writeline(logid, shclk->tostring() + ": Moving PID " +
             std::to_string(proc->PID) + " to blocked queue");
         schq.moveToBlocked(proc);
+    } else if (msg->data[STATUS] == PREEMPT) {
+        writeline(logid, shclk->tostring() + ": PID " +
+            std::to_string(proc->PID) + " preempted and moved to priority" +
+            " queue " + std::to_string(proc->PRIORITY + 1));
+        schq.moveToNextPriority(proc);
     }
     delete msg;
+}
+
+void printsummary(mlfq& schq, clk* shclk, int quittype,
+        std::string logfile, int logid) {
+    // PRINT SUMMARY
+    // log reason for termination
+    std::string summary;
+    if (quittype == SIGINT) {
+        summary = shclk->tostring() + ": Simulation terminated due to "
+            + "SIGINT received";
+    } else if (quittype == SIGALRM) {
+        summary = shclk->tostring() + ": Simulation terminated due to "
+            + "reaching end of allotted time";
+    } else if (quittype == 0) {
+        summary = shclk->tostring() + ": Simulation terminated after "
+            + "100 processes were created and naturally terminated";
+    }
+    std::cout << summary << "\n";
+    writeline(logid, summary);
+
+    // Average CPU Times
+    long long AVGCPU = 0;
+    for (auto proc : schq.expired) {
+        AVGCPU += proc->CPU_TIME;
+    }
+    AVGCPU /= schq.expired.size();
+    summary = "Average CPU Utilization per PID (ns): " + 
+        std::to_string(AVGCPU);
+    std::cout << summary << "\n";
+    writeline(logid, summary);
+
+    // Average Blocked Queue Times
+    long long AVGBLK = 0;
+    for (auto proc : schq.expired) {
+        AVGBLK  += proc->BLOCK_TIME;
+    }
+    AVGBLK /= schq.expired.size();
+    summary = "Average time in Blocked Queue per PID (ns): " +
+        std::to_string(AVGBLK);
+    std::cout << summary << "\n";
+    writeline(logid, summary);
+
+    // Average Idle CPU
+    summary = "Total CPU Idle Time (ns): " + std::to_string(schq.IDLE_TIME);
+    std::cout << summary << "\n";
+    writeline(logid, summary);
+
+    std::cout << "For a complete simulation log, please see " << logfile << "\n";
 }

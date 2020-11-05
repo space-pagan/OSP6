@@ -3,6 +3,7 @@
  * Last Edit:   November 3, 2020
  */
 
+#include <ctime>
 #include "sys_clk.h"
 
 float clk::tofloat() {
@@ -56,3 +57,6 @@ float clk::nextrand(long maxns) {
     return copy.tofloat();
 }
 
+std::string epochstr() {
+    return std::to_string(time(0));
+}

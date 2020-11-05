@@ -36,7 +36,7 @@ void signalhandler(int signum) {
     }
 }
 
-void main_loop(int conc, const char* logfile, std::string runpath) {
+void main_loop(int conc, std::string logfile, std::string runpath) {
     int max_count = 0;    //count of children created
     int conc_count = 0;   //count of currently running children
     int currID = 0;       //value of next unused ftok id
@@ -67,6 +67,10 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
             }
         }
 
+        if (!schq.anyActive() && schq.IDLE_START == 0) {
+            schq.IDLE_START = shclk->clk_s * 1e9 + shclk->clk_n;
+        }
+
         if (!schq.blocked.empty()) {
             unblockreadyproc(schq, shclk, logid);
         }
@@ -93,43 +97,17 @@ void main_loop(int conc, const char* logfile, std::string runpath) {
 
         // try to dispatch the first active (not blocked) process
         if ((proc = schq.getFirstProc()) != NULL) {
+            if (schq.IDLE_START) {
+                schq.IDLE_TIME += shclk->clk_s * 1e9 + shclk->clk_n -
+                    schq.IDLE_START;
+                schq.IDLE_START = 0;
+            }
             scheduleproc(schq, shclk, proc, logid, conc_count);
         }
         shclk->inc(rand() % (long)1e9);
     }
 
-    // log reason for termination
-    if (quittype == SIGINT) {
-        writeline(logid, shclk->tostring() + ": Simulation terminated due to "
-            + "SIGINT received");
-    } else if (quittype == SIGALRM) {
-        writeline(logid, shclk->tostring() + ": Simulation terminated due to "
-            + "reaching end of allotted time");
-    } else if (quittype == 0) {
-        writeline(logid, shclk->tostring() + ": Simulation terminated after "
-            + "100 processes were created and naturally terminated");
-    }
-
-    // PRINT SUMMARY
-    // Average Wait Time            ???
-    // Average CPU Times
-    long long AVGCPU = 0;
-    for (auto proc : schq.expired) {
-        AVGCPU += proc->CPU_TIME;
-    }
-    AVGCPU /= schq.expired.size();
-    std::cout << "Average CPU Utilization per PID (ns): " << AVGCPU << "\n";
-
-    // Average Blocked Queue Times
-    long long AVGBLK = 0;
-    for (auto proc : schq.expired) {
-        AVGBLK  += proc->BLOCK_TIME;
-    }
-    AVGBLK /= schq.expired.size();
-    std::cout << "Average time in Blocked Queue per PID (ns): " << AVGBLK << "\n";
-
-    // Average Idle CPU             ???
-
+    printsummary(schq, shclk, quittype, logfile, logid);
     // remove all child processes
     while (conc_count > 0) {
         killallchildren();
@@ -153,7 +131,7 @@ int main(int argc, char** argv) {
     if (!pathdepcheck(runpath, "user")) pathdeperror();
 
     int conc = 18;
-    const char* logfile = "output.log"; 
+    std::string logfile = "output-" + epochstr() + ".log";
     int max_time = 3;
     // set up kill timer
     alarm(max_time);

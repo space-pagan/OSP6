@@ -235,7 +235,8 @@ void msgreceive(int key_id) {
     // until a message is received.
     // In general, this call should succeed so long as a msg queue exists
     struct msgbuffer buf; // sacrificial buffer struct
-    if (msgrcv(msglookupid(key_id), &buf, 0, 0, 0) == -1) perrandquit();
+    if (msgrcv(msglookupid(key_id), &buf, 0, 0, 0) == -1 && errno != EINTR) 
+        perrandquit();
 }
 
 void msgreceive(int key_id, int mtype) {
@@ -244,7 +245,8 @@ void msgreceive(int key_id, int mtype) {
     // process will block until a message is received.
     // In general, this call should succeed so long as a msg queue exists
     struct msgbuffer buf; // sacrificial buffer struct
-    if (msgrcv(msglookupid(key_id), &buf, 0, mtype, 0) == -1) perrandquit();
+    if (msgrcv(msglookupid(key_id), &buf, 0, mtype, 0) == -1 && errno != EINTR) 
+        perrandquit();
 }
 
 void msgreceive(int key_id, pcbmsgbuf* buf) {
@@ -254,8 +256,9 @@ void msgreceive(int key_id, pcbmsgbuf* buf) {
     // received.
     // In general, this call should succeed so long as a msg queue exists
     if (msgrcv(
-        msglookupid(key_id), buf, sizeof(buf->data), buf->mtype, 0) == -1)
-            perrandquit();
+        msglookupid(key_id), buf, sizeof(buf->data), buf->mtype, 0) == -1 &&
+            errno != EINTR)
+                perrandquit();
 }
 
 bool msgreceivenw(int key_id) {

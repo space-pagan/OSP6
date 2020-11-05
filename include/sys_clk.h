@@ -22,4 +22,5 @@ struct clk{
     float nextrand(long maxns);
 };
 
+std::string epochstr();
 #endif

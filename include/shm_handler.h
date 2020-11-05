@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 enum Data { PCBNUM, TIMESLICE, STATUS };
-enum Status { TERM, RUN, BLOCK, UBLOCK };
+enum Status { TERM, RUN, BLOCK, UBLOCK, PREEMPT };
 
 struct pcbmsgbuf {
     long mtype;
@@ -34,7 +34,6 @@ void msgreceive(int key_id, pcbmsgbuf* buf);
 bool msgreceivenw(int key_id);
 bool msgreceivenw(int key_id, int mtype);
 bool msgreceivenw(int key_id, pcbmsgbuf* buf);
-void msgreceive(int key_id);
 void ipc_cleanup();
 
 #endif
