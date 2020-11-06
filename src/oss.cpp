@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     September 9, 2020
- * Last edit:   October 21, 2020
+ * Last edit:   November 05, 2020
  */
 
 #include <iostream>              //cout
@@ -36,17 +36,20 @@ void signalhandler(int signum) {
     }
 }
 
-void testexitorsettime(mlfq& schq, clk* shclk, int max_count, float nextSpawnTime) {
+void testexitorsettime(mlfq& schq, clk* shclk, int mc, float nst, int logid) {
     if (schq.isEmpty()) {
-        if (max_count >= 100) {
+        if (mc >= 100) {
             // if no active or blocked procs and no more procs can be
             // spawned end simulation
             earlyquit = true;
             quittype = 0;
-        } else {
-            // otherwise, jump clock to next spawn time
-            if (shclk->tofloat() < nextSpawnTime)
-                shclk->set(nextSpawnTime);
+        } else if (shclk->tofloat() < nst) {
+            long waittime = floattimetonano(nst);
+            waittime -= shclk->clk_s * 1e9 + shclk->clk_n;
+            shclk->set(nst);
+            schq.IDLE_TIME += waittime;
+            writeline(logid, shclk->tostring() + ": All queues empty, " +
+                "CPU idle for " + std::to_string(waittime) + " ns");
         }
     }
 }
@@ -81,7 +84,7 @@ void main_loop(std::string logfile, std::string runpath) {
     pcb* proc; // object for the currently handled pcb to reduce code length
     
     while (!earlyquit) {
-        testexitorsettime(schq, shclk, max_count, nextSpawnTime);
+        testexitorsettime(schq, shclk, max_count, nextSpawnTime, logid);
         // unblock a proc that has indicated that the event it blocked on has
         // occurred and it is ready to be scheduled again
         if (!schq.blocked.empty()) {
@@ -94,11 +97,14 @@ void main_loop(std::string logfile, std::string runpath) {
                ((pcbnum = schq.addProc()) != -1)) {
             genproc(schq, shclk, runpath + "user ", pcbnum, 
                 conc_count, max_count, logid);
-            // update time to attempt to spawn next proc
-            nextSpawnTime = shclk->nextrand(maxBTWs * 1e9 + maxBTWns);
-            if (max_count < 100)
-                writeline(logid, "\tNext spawn at " + 
-                    std::to_string(nextSpawnTime));
+            // update time to attempt to gen next proc
+            if (max_count < 100) {
+                nextSpawnTime = shclk->nextrand(maxBTWs * 1e9 + maxBTWns);
+                long nst_s = (long)nextSpawnTime;
+                long nst_n = (long)((nextSpawnTime - nst_s) * 1e9);
+                writeline(logid, "\tNext at " + std::to_string(nst_s) + "." +
+                    std::to_string(nst_n));
+            }
         }
         // try to dispatch the first active (not blocked) process
         if ((proc = schq.getFirstProc()) != NULL) {

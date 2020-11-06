@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     October 6, 2020
- * Last edit:   October 21, 2020
+ * Last edit:   November 5, 2020
  */
 
 #include <sys/types.h>          //key_t
@@ -235,6 +235,8 @@ void msgreceive(int key_id) {
     // until a message is received.
     // In general, this call should succeed so long as a msg queue exists
     struct msgbuffer buf; // sacrificial buffer struct
+    // do not acknowledge error due to interrupt, forces using interrupt
+    // handler as defined in oss.cpp
     if (msgrcv(msglookupid(key_id), &buf, 0, 0, 0) == -1 && errno != EINTR) 
         perrandquit();
 }
@@ -245,6 +247,8 @@ void msgreceive(int key_id, int mtype) {
     // process will block until a message is received.
     // In general, this call should succeed so long as a msg queue exists
     struct msgbuffer buf; // sacrificial buffer struct
+    // do not acknowledge error due to interrupt, forces using interrupt
+    // handler as defined in oss.cpp
     if (msgrcv(msglookupid(key_id), &buf, 0, mtype, 0) == -1 && errno != EINTR) 
         perrandquit();
 }
@@ -255,6 +259,8 @@ void msgreceive(int key_id, pcbmsgbuf* buf) {
     // in the queue, the calling proccess will block until a message is
     // received.
     // In general, this call should succeed so long as a msg queue exists
+    // do not acknowledge error due to interrupt, forces using interrupt
+    // handler as defined in oss.cpp
     if (msgrcv(
         msglookupid(key_id), buf, sizeof(buf->data), buf->mtype, 0) == -1 &&
             errno != EINTR)

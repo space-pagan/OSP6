@@ -23,4 +23,6 @@ struct clk{
 };
 
 std::string epochstr();
+long floattimetonano(float time);
+
 #endif

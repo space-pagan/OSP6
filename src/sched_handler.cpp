@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     October 29, 2020
- * Last edit:   October 29, 2020 
+ * Last edit:   November 05, 2020 
  */
 
 #include <csignal>
@@ -134,11 +134,13 @@ void unblockreadyproc(mlfq& schq, clk* shclk, int logid) {
     if (msgreceivenw(2, msg)) {
         // increment clock to represent work done to unblock a process
         // (should be more than regular dispatch increment)
-        shclk->inc(1000 + rand() % 19901);
+        long waittime = 1000 + rand() % 19901;
+        shclk->inc(waittime);
         // a message was present, unblock the pcb
         pcb* proc = &schq.pcbtable[msg->data[PCBNUM]];
         writeline(logid, shclk->tostring() + ": Unblocking PID " +
-            std::to_string(proc->PID));
+            std::to_string(proc->PID) + " which took " +
+            std::to_string(waittime) + " ns");
         schq.moveToNextPriority(proc);
     }
     delete msg;
@@ -146,91 +148,104 @@ void unblockreadyproc(mlfq& schq, clk* shclk, int logid) {
 
 void genproc(mlfq& schq, clk* shclk, std::string userargstr, 
         int pcbnum, int& conc_count, int& max_count, int logid) {
+    // sets up and logs the generation of a child process
     pcb* proc = &schq.pcbtable[pcbnum];
     forkexec(userargstr + std::to_string(pcbnum), conc_count);
     proc->INCEPTIME = shclk->clk_s * 1e9 + shclk->clk_n;
-    writeline(logid, shclk->tostring() + ": Spawning PID " +
+    writeline(logid, shclk->tostring() + ": Generating process with PID " +
         std::to_string(proc->PID) + " (" + std::to_string(++max_count) +
         "/100)");
 }
 
 void dispatch(mlfq& schq, clk* shclk, pcb* proc, int logid) {
+    // generates and sends a dispatch message to the process represented by
+    // pcb* proc
     int pcbnum = proc->PCBTABLEPOS;
-    // queues are not empty, dispatch a process
     pcbmsgbuf* msg = new pcbmsgbuf;
     msg->mtype = pcbnum + 3;
     msg->data[PCBNUM] = pcbnum;
+    // the quantuum with which to dispatch the process
     msg->data[TIMESLICE] = schq.quantuums[proc->PRIORITY];
+    // log what's happening
     writeline(logid, shclk->tostring() + ": Scheduling PID " +
         std::to_string(proc->PID) + " with quantuum " +
         std::to_string(msg->data[TIMESLICE]) + "ns");
+    // actually send the dispatch message
     msgsend(2, msg);
-    long worktime = 100 + rand() % 9901;
     // incrememnt the clock by a random amount between 100 and 
     // 10000ns to indicate work done to schedule the process
+    long worktime = 100 + rand() % 9901;
     shclk->inc(worktime);
     writeline(logid, shclk->tostring() + ": Dispatch took " + 
         std::to_string(worktime) + " ns");
+    // prevent memory leak
     delete msg;
 }
 
 void handledispatched(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count) {
-    // wait for response from scheduled proc
-    // only receive messages intended for oss
+    // handles the dispatch response from process proc via message with
+    // mtype 1
     pcbmsgbuf* msg = new pcbmsgbuf;
     msg->mtype = 1;
     // block until response received
     msgreceive(2, msg);
+    // increment the clock by the amount of time used by proc
     shclk->inc(proc->BURST_TIME);
     proc->CPU_TIME += proc->BURST_TIME;
-    writeline(logid, shclk->tostring() + ": PID " + std::to_string(proc->PID) +
-        " ran for " + std::to_string(proc->BURST_TIME) + "ns");
+    std::string summary = shclk->tostring() + ": PID " + 
+        std::to_string(proc->PID) + " ran for " + 
+        std::to_string(proc->BURST_TIME) + " ns";
     // process received information
     if (msg->data[STATUS] == TERM) {
-        writeline(logid, shclk->tostring() + ": PID " + 
-            std::to_string(proc->PID) + " terminating");
         // process is terminating, move to expired queue and collect
         schq.moveToExpired(proc);
         waitforanychild(conc_count);
+        summary += " and terminated";
     } else if (msg->data[STATUS] == RUN) {
-        writeline(logid, shclk->tostring() + ": Moving PID " +
-            std::to_string(proc->PID) + " to priority queue " +
-            std::to_string(proc->PRIORITY + 1));
+        // process used all quantuum, move to next queue
         schq.moveToNextPriority(proc);
+        summary += ", using its entire quantuum, and was moved to ";
+        summary += "priority queue " + std::to_string(proc->PRIORITY + 1);
     } else if (msg->data[STATUS] == BLOCK) {
-        writeline(logid, shclk->tostring() + ": Moving PID " +
-            std::to_string(proc->PID) + " to blocked queue");
+        // process blocked on event, move to blocked queue
         schq.moveToBlocked(proc);
+        summary += " and was moved to the blocked queue";
     } else if (msg->data[STATUS] == PREEMPT) {
-        writeline(logid, shclk->tostring() + ": PID " +
-            std::to_string(proc->PID) + " preempted and moved to priority" +
-            " queue " + std::to_string(proc->PRIORITY + 1));
+        // process preempted after using some quantuum, mote to next queue
         schq.moveToNextPriority(proc);
+        summary += ", was preempted, and was moved to priority queue " +
+            std::to_string(proc->PRIORITY + 1);
     }
+    // log what occurred
+    writeline(logid, summary);
 }
 
 void scheduleproc(mlfq& schq, clk* shclk, pcb* proc, int logid, int& conc_count) {
+    // publicly visible to oss
     dispatch(schq, shclk, proc, logid);
     handledispatched(schq, shclk, proc, logid, conc_count);
 }
 
 void printandlog(std::string summary, int logid) {
+    // utility to print a message to stdout and to a file opened for writing
     std::cout << summary << "\n";
     writeline(logid, summary);
 }
 
-void printTermReason(clk* shclk, int quittype, int logid) {
+void printTermReason(mlfq& schq, clk* shclk, int quittype, int logid) {
     // log reason for termination
     std::string summary;
     if (quittype == SIGINT) {
-        summary = shclk->tostring() + ": Simulation terminated due to "
-            + "SIGINT received";
+        summary = "Simulation terminated due to SIGINT at system time " + 
+            shclk->tostring() + ", having ran " + std::to_string(schq.PID) +
+            " processes";
     } else if (quittype == SIGALRM) {
-        summary = shclk->tostring() + ": Simulation terminated due to "
-            + "reaching end of allotted time";
+        summary = "Simulation terminated due to reaching end of allotted time";
+        summary += " at system time " + shclk->tostring() + ", having ran ";
+        summary += std::to_string(schq.PID) + " processes";
     } else if (quittype == 0) {
-        summary = shclk->tostring() + ": Simulation terminated after "
-            + "100 processes were created and naturally terminated";
+        summary = "Simulation terminated naturally after running 100";
+        summary += " processes at system time " + shclk->tostring();
     }
     printandlog(summary, logid);
 }
@@ -260,6 +275,7 @@ void printAVGBLK(mlfq& schq, int logid) {
 }
 
 void printAVGSYS(mlfq& schq, int logid) {
+    // Average System Times (from incep to term)
     long long AVGSYS = 0;
     for (auto proc : schq.expired) {
         AVGSYS += proc->SYS_TIME;
@@ -280,7 +296,7 @@ void printAVGIDLE(mlfq& schq, int logid) {
 void printsummary(mlfq& schq, clk* shclk, int quittype,
         std::string logfile, int logid) {
     // PRINT SUMMARY
-    printTermReason(shclk, quittype, logid);
+    printTermReason(schq, shclk, quittype, logid);
     printAVGCPU(schq, logid);
     printAVGBLK(schq, logid);
     printAVGSYS(schq, logid);

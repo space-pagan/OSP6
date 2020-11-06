@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Date:        November 3, 2020
- * Last Edit:   November 3, 2020
+ * Last Edit:   November 5, 2020
  */
 
 #include <ctime>
@@ -58,5 +58,13 @@ float clk::nextrand(long maxns) {
 }
 
 std::string epochstr() {
+    // returns a string containing the unix epoch time for log naming
     return std::to_string(time(0));
+}
+
+long floattimetonano(float time) {
+    // converts a time float formatted as s.ns to a long formatted as ns
+    long s = (long)time;
+    long n = (long)((time - s) * 1e9);
+    return s*1e9 + n;
 }

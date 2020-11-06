@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     September 9, 2020
- * Last edit:   October 16, 2020
+ * Last edit:   October 28, 2020
  */
 
 #include <unistd.h>             //getopt()
@@ -76,6 +76,8 @@ int getcliarg(int argc, char** argv, const char* options, \
 }
 
 void parserunpath(char** argv, std::string& runpath, std::string& pref) {
+    // This function parses argv[0] and puts the PWD and name of the binary
+    // into runpath and pref respectively
     std::string rawpath = argv[0];
     size_t split = rawpath.rfind('/')+1;
     if (split != 0) {
@@ -88,6 +90,8 @@ void parserunpath(char** argv, std::string& runpath, std::string& pref) {
 }
 
 bool pathdepcheck(std::string runpath, std::string depname) {
+    // This function confirms the existence of a file named depname in the path
+    // runpath. Used to ensure that dependant binaries are present
     struct stat buffer;
     std::string depcheck = runpath + depname;
     if (stat(depcheck.c_str(), &buffer) == 0) return true;

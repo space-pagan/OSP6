@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     October 6, 2020
- * Last edit:   October 10, 2020
+ * Last edit:   October 31, 2020
  */
 
 #include <fstream>           //ofstream, ifstream
@@ -29,6 +29,7 @@ int add_outfile(const char* name) {
 }
 
 int add_outfile_append(std::string name) {
+    // alias to allow a std::string as a filename
     return add_outfile_append(name.c_str());
 }
 

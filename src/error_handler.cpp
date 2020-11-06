@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     September 10, 2020
- * Last edit:   October 10, 2020
+ * Last edit:   October 28, 2020
  */
 
 #include <string>               //string
@@ -56,6 +56,8 @@ void custerrhelpprompt(std::string error) {
 }
 
 void pathdeperror() {
+    // print an error if a dependency is missing which prevents normal
+    // operation
     customerrorquit(
         std::string("One or more dependentent binaries is ") +\
         std::string("missing, please ensure that you are ") +\
