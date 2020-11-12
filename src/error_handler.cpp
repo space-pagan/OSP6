@@ -11,7 +11,7 @@
 std::string rawprefix; // stores argv[0] ONLY
 std::string prefix;    // stores argv[0]: Error
 
-void setupprefix(const char* arg0) {
+void setupprefix(std::string arg0) {
     // sets the value of prefix. Run this at the very start of the program 
     // to ensure that perror always displays the correct error message
     prefix = arg0;

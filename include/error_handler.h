@@ -3,7 +3,7 @@
 
 #include <string>
 
-void setupprefix(const char* arg0);
+void setupprefix(std::string arg0);
 void perrandquit();
 void customerrorquit(const char* error); 
 void customerrorquit(std::string error); 
