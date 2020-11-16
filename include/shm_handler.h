@@ -3,12 +3,17 @@
 
 #include <sys/types.h>
 
-enum Data { PCBNUM, TIMESLICE, STATUS };
-enum Status { TERM, RUN, BLOCK, UBLOCK, PREEMPT };
+enum Status { CLAIM, TERM, REQ, REL };
+
+typedef struct {
+    int pid;
+    Status status;
+    int resarray[20];
+}Data;
 
 struct pcbmsgbuf {
     long mtype;
-    int data[3];
+    Data data;
 };
 
 void* shmcreate(size_t bytes, int& key_id);

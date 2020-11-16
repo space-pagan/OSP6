@@ -57,6 +57,10 @@ float clk::nextrand(long maxns) {
     return copy.tofloat();
 }
 
+long clk::tonano() {
+    return this->clk_s*1e9 + this->clk_n;
+}
+
 std::string epochstr() {
     // returns a string containing the unix epoch time for log naming
     return std::to_string(time(0));

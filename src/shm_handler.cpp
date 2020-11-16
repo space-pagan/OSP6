@@ -313,14 +313,6 @@ bool msgreceivenw(int key_id, pcbmsgbuf* buf) {
     return true;
 }
 
-pcbmsgbuf* msgrecwithdatanw(int key_id, int pcbnum) {
-    struct pcbmsgbuf* buf = new pcbmsgbuf;
-    buf->data[2] = -1;
-    if (msgrcv(msglookupid(key_id), buf, sizeof(buf->data), pcbnum+2, IPC_NOWAIT) == -1 && errno != ENOMSG)
-        perrandquit();
-    return buf;
-}
-
 void msgdestroy(int key_id) {
     // attempt to destroy the message queue at key_id.
     // If key_id is invalid or the calling process is not the owner of

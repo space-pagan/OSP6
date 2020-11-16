@@ -36,7 +36,7 @@ void signalhandler(int signum) {
     }
 }
 
-void cleanup(clk* shclk, int& conc_count) {
+void cleanup(clk* shclk, resman r, int& conc_count) {
     // remove all child processes
     while (conc_count > 0) {
         killallchildren();
@@ -44,6 +44,8 @@ void cleanup(clk* shclk, int& conc_count) {
     }
     // release all shared memory created
     shmdetach(shclk);
+    shmdetach(r.desk);
+    shmdetach(r.sysmax);
     ipc_cleanup();
 }
 
@@ -63,6 +65,7 @@ void main_loop(std::string logfile, std::string runpath) {
     int currID = 0;       //value of next unused ftok id
     int logid = add_outfile_append(runpath + logfile); //log stream id
     int spawnConst = 500000; //the maximum time between new fork calls
+    int pid;              // pid for new child
     srand(getpid());      //set random seed;
     // create shared clock
     clk* shclk = (clk*)shmcreate(sizeof(clk), currID);
@@ -70,18 +73,26 @@ void main_loop(std::string logfile, std::string runpath) {
     msgcreate(currID);
     // instantiate resource manager
     resman r(currID);
-    int claim[20];
-    for (int i : drange) claim[i] = 0;
-    claim[0] = std::min(2, r.sysmax[0]);
-    r.stateclaim(0, claim);
-    for (int i = 0; i < claim[0]; i++) std::cout << r.allocate(0, 0) << "\n";
-    std::cout << "\n\n";
-    r.printAlloc();
+    pcbmsgbuf* buf = new pcbmsgbuf;
 
-    // while (!earlyquit) {
-
-    // }
-    cleanup(shclk, conc_count);
+    while (!earlyquit) {
+        if (shclk->tofloat() >= nextSpawnTime && max_count < 1) {
+            r.findandsetpid(pid);
+            if (pid >= 0) {
+                forkexec(runpath + "user " + std::to_string(pid), conc_count);
+                max_count++;
+                nextSpawnTime = shclk->nextrand(spawnConst);
+                std::cout << "Creating PID " << pid << "\n";
+            }
+        }
+        if (msgreceivenw(1, buf)) {
+            if (buf->data.status == CLAIM) {
+                r.stateclaim(buf->data.pid, buf->data.resarray);
+            }
+        }
+        shclk->inc(10000);
+    }
+    cleanup(shclk, r, conc_count);
 }
 
 int main(int argc, char** argv) {

@@ -15,6 +15,7 @@ struct clk{
 
     float tofloat();
     std::string tostring();
+    long tonano();
     void set(float time);
     void set(std::string time);
     void inc(long ns);
