@@ -56,6 +56,19 @@ void testopts(int argc, char** argv, std::string pref, int optind, bool* flags) 
         "Unknown argument '" + std::string(argv[optind]) + "'");
 }
 
+void unblockAfterRelease(clk* shclk, resman& r, std::list<Data>& blocked) {
+    auto i = blocked.begin();
+    while (i != blocked.end()) {
+        if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
+            msgsend(1, (*i).pid+2);
+            logUnblock(shclk, (*i));
+            blocked.erase(i++);
+        } else {
+            i++;
+        }
+    }
+}
+
 void main_loop(std::string runpath) {
     int max_count = 0;    //count of children created
     int conc_count = 0;   //count of currently running children
@@ -106,16 +119,7 @@ void main_loop(std::string runpath) {
                 r.release(buf->data.pid, buf->data.resi, buf->data.resamount);
                 msgsend(1, buf->data.pid+2);
                 logRel(shclk, buf->data, blockedRequests.size());
-                auto i = blockedRequests.begin();
-                while (i != blockedRequests.end()) {
-                    if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
-                        msgsend(1, (*i).pid+2);
-                        logUnblock(shclk, (*i));
-                        blockedRequests.erase(i++);
-                    } else {
-                        i++;
-                    }
-                }
+                unblockAfterRelease(shclk, r, blockedRequests);
             } else if (buf->data.status == TERM) {
                 for (int i : range(20)) {
                     r.release(buf->data.pid, i, r.desc[i].alloc[buf->data.pid]);
@@ -123,16 +127,7 @@ void main_loop(std::string runpath) {
                 waitforchildpid(buf->data.realpid, conc_count);
                 r.unsetpid(buf->data.pid);
                 logTerm(shclk, buf->data, blockedRequests.size());
-                auto i = blockedRequests.begin();
-                while (i != blockedRequests.end()) {
-                    if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
-                        msgsend(1, (*i).pid+2);
-                        logUnblock(shclk, (*i));
-                        blockedRequests.erase(i++);
-                    } else {
-                        i++;
-                    }
-                }
+                unblockAfterRelease(shclk, r, blockedRequests);
             }
         } else {
             // std::cout << shclk->tostring() << ": Waiting\n";
