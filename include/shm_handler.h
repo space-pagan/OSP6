@@ -9,6 +9,9 @@ typedef struct {
     int pid;
     Status status;
     int resarray[20];
+    int resi;
+    int resamount;
+    pid_t realpid;
 }Data;
 
 struct pcbmsgbuf {

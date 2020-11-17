@@ -4,6 +4,7 @@
  */
 
 #include <ctime>
+#include <cstring>
 #include "sys_clk.h"
 
 float clk::tofloat() {
@@ -11,12 +12,9 @@ float clk::tofloat() {
 }
 
 std::string clk::tostring() {
-    int zeropad = 9 - std::to_string(this->clk_n).size();
-    std::string repr = std::to_string(this->clk_s) + ".";
-    while (zeropad--) {
-        repr += "0";
-    }
-    return repr + std::to_string(this->clk_n);
+    char buf[256];
+    sprintf(buf, "%ld.%09ld", this->clk_s, this->clk_n);
+    return std::string(buf);
 }
 
 void clk::set(float time) {
@@ -31,7 +29,7 @@ void clk::set(std::string time) {
 
 void clk::inc(long ns) {
     this->clk_n += ns;
-    while (this->clk_n > 1e9) {
+    while (this->clk_n >= 1e9) {
         this->clk_n -= 1e9;
         this->clk_s += 1;
     }

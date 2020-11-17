@@ -10,6 +10,7 @@
 #include "error_handler.h"   //setupprefix()
 #include "file_handler.h"    //add_outfile_append(), writeline()
 #include "sys_clk.h"         //struct clk
+#include "res_handler.h"     //Descriptor
 
 volatile bool earlyquit = false;
 
@@ -27,39 +28,40 @@ int main(int argc, char **argv) {
     int pid = std::stoi(argv[1]);
     // attach shared memory
     clk* shclk = (clk*)shmlookup(0);
+    Descriptor* desc = (Descriptor*)shmlookup(2);
     int* sysmax = (int*)shmlookup(3);
-
-    int claim[20];
-    int* alloc = new int[20];
+    float startTime = shclk->tofloat();
+    float nextActionTime = shclk->nextrand(10e6);
+    float termActionTime;
+    bool maybeTerm = false;
+    int reqChance = 60;
+    int termChance = 20;
 
     pcbmsgbuf* buf = new pcbmsgbuf;
     buf->mtype = 1;
     buf->data.pid = pid;
     buf->data.status = CLAIM;
     for (int i = 0; i < 20; i++) {
-        claim[i] = rand() % sysmax[i];
-        buf->data.resarray[i] = claim[i];
+        buf->data.resarray[i] = rand() % sysmax[i];
     }
     msgsend(1, buf);
     shmdetach(sysmax);
 
-    float nextActionTime = shclk->nextrand(10000000);
-    float startTime = shclk->tofloat();
-    float termActionTime;
-    bool maybeTerm = false;
-    int reqChance = 51;
     while(!0) {
-        if (shclk->tonano() >= startTime + 1 && !maybeTerm) {
+        if (shclk->tofloat() >= startTime + 1 && !maybeTerm) {
             maybeTerm = true;
-            termActionTime = shclk->nextrand(250000000);
+            termActionTime = shclk->nextrand(250e6);
         }
-        if (shclk->tofloat() >= termActionTime) {
-            if (rand() % 4 == 0) {
+        if (maybeTerm && shclk->tofloat() >= termActionTime) {
+            if (rand() % termChance == 0) {
                 buf->data.status = TERM;
+                buf->data.realpid = getpid();
                 shmdetach(shclk);
+                msgsend(1, buf);
+                shmdetach(desc);
                 exit(0);
             }
-            termActionTime = shclk->nextrand(250000000);
+            termActionTime = shclk->nextrand(250e6);
         }
         if (shclk->tofloat() >= nextActionTime) {
             if (rand() % 100 < reqChance) {
@@ -67,47 +69,46 @@ int main(int argc, char **argv) {
                 int reqi = -1;
                 bool requestable = false;
                 for (int i = 0; i < 20; i++)
-                    if (claim[i] - alloc[i] > 0) requestable = true;
+                    if (desc[i].claim[pid] - desc[i].alloc[pid] > 0) requestable = true;
                 if (!requestable) {
-                    nextActionTime = shclk->nextrand(10000000);
+                    nextActionTime = shclk->nextrand(10e6);
                     continue;
                 }
                 while (requestable && reqi < 0) {
                     int resi = rand() % 20;
-                    if (claim[resi] - alloc[resi] > 0) {
+                    if (desc[resi].claim[pid] - desc[resi].alloc[pid] > 0) {
                         reqi = resi;
                     }
                 }
-                int reqamount = 1 + rand() % (claim[reqi] - alloc[reqi]);
+                int reqamount = 1 + rand() % (desc[reqi].claim[pid] - desc[reqi].alloc[pid]);
                 buf->data.status = REQ;
-                for (int i = 0; i < 20; i++) {
-                    buf->data.resarray[i] = (i == reqi) ? reqamount : 0;
-                }
+                buf->data.resi = reqi;
+                buf->data.resamount = reqamount;
                 msgsend(1, buf);
                 msgreceive(1, 2+pid); // blocks until acknowledged
-                alloc[reqi] += reqamount;
             } else {
                 int reli = -1;
                 bool releaseable = false;
-                for (int i = 0; i < 20; i++)
-                    if (alloc[i]) releaseable = true;
+                for (int i = 0; i < 20; i++) {
+                    if (desc[i].alloc[pid]) {
+                        releaseable = true;
+                    }
+                }
                 if (!releaseable) {
-                    nextActionTime = shclk->nextrand(10000000);
+                    nextActionTime = shclk->nextrand(10e6);
                     continue;
                 }
                 while (releaseable && reli < 0) {
                     int resi = rand() % 20;
-                    if (alloc[reli]) reli = resi;
+                    if (desc[resi].alloc[pid]) reli = resi;
                 }
-                int relamount = 1 + rand() % (alloc[reli]);
+                int relamount = 1 + rand() % (desc[reli].alloc[pid]);
                 buf->data.status = REL;
-                for (int i = 0; i < 20; i++) {
-                    buf->data.resarray[i] = (i == reli) ? relamount : 0;
-                }
+                buf->data.resi = reli;
+                buf->data.resamount = relamount;
                 msgsend(1, buf);
-                alloc[reli] -= relamount;
             }
-            nextActionTime = shclk->nextrand(10000000);
+            nextActionTime = shclk->nextrand(10e6);
         }
     }
 }

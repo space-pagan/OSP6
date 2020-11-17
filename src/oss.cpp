@@ -9,7 +9,7 @@
 #include <unistd.h>              //alarm()
 #include <csignal>               //signal()
 #include <vector>                //std::vector
-#include <bitset>                //std::bitset
+#include <list>                  //std::list
 #include "cli_handler.h"         //parserunpath()
 #include "child_handler.h"       //forkexec(), updatechildcount()
                                  //    waitforchildpid(), killallchildren()
@@ -44,7 +44,7 @@ void cleanup(clk* shclk, resman r, int& conc_count) {
     }
     // release all shared memory created
     shmdetach(shclk);
-    shmdetach(r.desk);
+    shmdetach(r.desc);
     shmdetach(r.sysmax);
     ipc_cleanup();
 }
@@ -64,7 +64,7 @@ void main_loop(std::string logfile, std::string runpath) {
     int conc_count = 0;   //count of currently running children
     int currID = 0;       //value of next unused ftok id
     int logid = add_outfile_append(runpath + logfile); //log stream id
-    int spawnConst = 500000; //the maximum time between new fork calls
+    int spawnConst = 500000000; //the maximum time between new fork calls
     int pid;              // pid for new child
     srand(getpid());      //set random seed;
     // create shared clock
@@ -75,23 +75,78 @@ void main_loop(std::string logfile, std::string runpath) {
     resman r(currID);
     pcbmsgbuf* buf = new pcbmsgbuf;
 
+    std::list<Data> blockedRequests;
+
     while (!earlyquit) {
-        if (shclk->tofloat() >= nextSpawnTime && max_count < 1) {
+        if (max_count >= 40 && conc_count == 0) earlyquit = true;
+        if (shclk->tofloat() >= nextSpawnTime && max_count < 40) {
             r.findandsetpid(pid);
             if (pid >= 0) {
+                std::cout << shclk->tostring() << ": Created PID " << pid << " (" << ++max_count << "/40)\n";
                 forkexec(runpath + "user " + std::to_string(pid), conc_count);
-                max_count++;
                 nextSpawnTime = shclk->nextrand(spawnConst);
-                std::cout << "Creating PID " << pid << "\n";
             }
         }
         if (msgreceivenw(1, buf)) {
             if (buf->data.status == CLAIM) {
+                // std::cout << shclk->tostring() << ": Claim stated by PID " << buf->data.pid << "\n";
                 r.stateclaim(buf->data.pid, buf->data.resarray);
+            } else if (buf->data.status == REQ) {
+                int allocated = r.allocate(buf->data.pid, buf->data.resi, buf->data.resamount);
+                if (allocated == 0) {
+                    msgsend(1, buf->data.pid+2);
+                    std::cout << shclk->tostring() << ": PID " << buf->data.pid << " requested " << buf->data.resamount << " of R" << buf->data.resi << " and was granted\n";
+                } else if (allocated == 1) {
+                    blockedRequests.push_back(buf->data);
+                    std::cout << shclk->tostring() << ": PID " << buf->data.pid << " requested " << buf->data.resamount << " of R" << buf->data.resi << " and was denied due to lack of resource availability\n";
+                } else if (allocated == 2) {
+                    blockedRequests.push_back(buf->data);
+                    std::cout << shclk->tostring() << ": PID " << buf->data.pid << " requested " << buf->data.resamount << " of R" << buf->data.resi << " and was denied due to possible deadlock\n";
+                }
+            } else if (buf->data.status == REL) {
+                r.release(buf->data.pid, buf->data.resi, buf->data.resamount);
+                std::cout << shclk->tostring() << ": PID " << buf->data.pid << " released " << buf->data.resamount << " of R" << buf->data.resi << "\n";
+                if (blockedRequests.size()) {
+                    std::cout << shclk->tostring() << ": Checking if any processes can be unblocked (Currently " << blockedRequests.size() << " blocked)\n";
+                    auto i = blockedRequests.begin();
+                    while (i != blockedRequests.end()) {
+                        if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
+                            msgsend(1, (*i).pid+2);
+                            std::cout << shclk->tostring() << ": Unblocking PID " << (*i).pid << " and granting request for " << (*i).resamount << " of R" << (*i).resi << "\n";
+                            blockedRequests.erase(i++);
+                        } else {
+                            i++;
+                        }
+                    }
+                }
+            } else if (buf->data.status == TERM) {
+                std::cout << shclk->tostring() << ": PID " << buf->data.pid << " terminating\n";
+                for (int i : drange) {
+                    r.release(buf->data.pid, i, r.desc[i].alloc[buf->data.pid]);
+                }
+                std::cout << shclk->tostring() << ": Released all resources for PID " << buf->data.pid << "\n";
+                waitforchildpid(buf->data.realpid, conc_count);
+                r.unsetpid(buf->data.pid);
+                if (blockedRequests.size()) {
+                    std::cout << shclk->tostring() << ": Checking if any processes can be unblocked (Currently " << blockedRequests.size() << " blocked)\n";
+                    auto i = blockedRequests.begin();
+                    while (i != blockedRequests.end()) {
+                        if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
+                            std::cout << shclk->tostring() << ": Unblocking PID " << (*i).pid << " and granting request for " << (*i).resamount << " of R" << (*i).resi << "\n";
+                            msgsend(1, (*i).pid+2);
+                            blockedRequests.erase(i++);
+                        } else {
+                            i++;
+                        }
+                    }
+                }
             }
+        } else {
+            // std::cout << shclk->tostring() << ": Waiting\n";
         }
-        shclk->inc(10000);
+        shclk->inc(1e6);
     }
+    std::cout << shclk->tostring() << ": Terminated with " <<  blockedRequests.size() << " blocked processes\n";
     cleanup(shclk, r, conc_count);
 }
 
