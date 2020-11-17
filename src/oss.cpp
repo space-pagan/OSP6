@@ -10,18 +10,15 @@
 #include <csignal>               //signal()
 #include <vector>                //std::vector
 #include <list>                  //std::list
-#include "cli_handler.h"         //parserunpath()
-#include "child_handler.h"       //forkexec(), updatechildcount()
-                                 //    waitforchildpid(), killallchildren()
-                                 //    getdeppath()
-#include "error_handler.h"       //setupprefix(), perrquit(), 
-                                 //    custerrhelpprompt()
-#include "shm_handler.h"         //shmcreate(), shmdetach(), msgcreate()
-                                 //    msgsend()
+#include "cli_handler.h"         //cli arguments and parsing runpath
+#include "child_handler.h"       //forking and handling child processes
+#include "error_handler.h"       //error reporting
+#include "shm_handler.h"         //shared memory and message queues
 #include "help_handler.h"        //printhelp()
-#include "file_handler.h"        //add_outfile_append(), writeline()
 #include "sys_clk.h"             //struct clk
 #include "res_handler.h"         //struct Descriptor, struct resman
+#include "log_handler.h"         //logging utilities
+#include "util.h"
 
 // variables used in interrupt handling
 volatile bool earlyquit = false;
@@ -59,11 +56,10 @@ void testopts(int argc, char** argv, std::string pref, int optind, bool* flags) 
         "Unknown argument '" + std::string(argv[optind]) + "'");
 }
 
-void main_loop(std::string logfile, std::string runpath) {
+void main_loop(std::string runpath) {
     int max_count = 0;    //count of children created
     int conc_count = 0;   //count of currently running children
     int currID = 0;       //value of next unused ftok id
-    int logid = add_outfile_append(runpath + logfile); //log stream id
     int spawnConst = 500000000; //the maximum time between new fork calls
     int pid;              // pid for new child
     srand(getpid());      //set random seed;
@@ -82,7 +78,7 @@ void main_loop(std::string logfile, std::string runpath) {
         if (shclk->tofloat() >= nextSpawnTime && max_count < 40) {
             r.findandsetpid(pid);
             if (pid >= 0) {
-                std::cout << shclk->tostring() << ": Created PID " << pid << " (" << ++max_count << "/40)\n";
+                logNewPID(shclk, pid, ++max_count);
                 forkexec(runpath + "user " + std::to_string(pid), conc_count);
                 nextSpawnTime = shclk->nextrand(spawnConst);
             }
@@ -90,69 +86,64 @@ void main_loop(std::string logfile, std::string runpath) {
         buf->mtype = 1; // set explicitly
         if (msgreceivenw(1, buf)) {
             if (buf->data.status == CLAIM) {
-                std::cout << shclk->tostring() << ": PID " << buf->data.pid << " Max Claim: [";
-                for (int i : buf->data.resarray) std::cout << i << ", ";
-                std::cout << "]\n";
+                logMaxClaim(shclk, buf->data);
                 r.stateclaim(buf->data.pid, buf->data.resarray);
                 msgsend(1, buf->data.pid+2);
             } else if (buf->data.status == REQ) {
-                int allocated = r.allocate(buf->data.pid, buf->data.resi, buf->data.resamount);
+                int allocated = r.allocate(
+                        buf->data.pid, buf->data.resi, buf->data.resamount);
                 if (allocated == 0) {
                     msgsend(1, buf->data.pid+2);
-                    std::cout << shclk->tostring() << ": PID " << buf->data.pid << " requested " << buf->data.resamount << " of R" << buf->data.resi << " and was granted\n";
+                    logReqGranted(shclk, buf->data);
                 } else if (allocated == 1) {
                     blockedRequests.push_back(buf->data);
-                    std::cout << shclk->tostring() << ": PID " << buf->data.pid << " requested " << buf->data.resamount << " of R" << buf->data.resi << " and was denied due to lack of resource availability\n";
+                    logReqDenied(shclk, buf->data);
                 } else if (allocated == 2) {
                     blockedRequests.push_back(buf->data);
-                    std::cout << shclk->tostring() << ": PID " << buf->data.pid << " requested " << buf->data.resamount << " of R" << buf->data.resi << " and was denied due to possible deadlock\n";
+                    logReqDeadlock(shclk, buf->data);
                 }
             } else if (buf->data.status == REL) {
                 r.release(buf->data.pid, buf->data.resi, buf->data.resamount);
                 msgsend(1, buf->data.pid+2);
-                std::cout << shclk->tostring() << ": PID " << buf->data.pid << " released " << buf->data.resamount << " of R" << buf->data.resi << "\n";
-                if (blockedRequests.size()) {
-                    std::cout << shclk->tostring() << ": Checking if any processes can be unblocked (Currently " << blockedRequests.size() << " blocked)\n";
-                    auto i = blockedRequests.begin();
-                    while (i != blockedRequests.end()) {
-                        if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
-                            msgsend(1, (*i).pid+2);
-                            std::cout << shclk->tostring() << ": Unblocking PID " << (*i).pid << " and granting request for " << (*i).resamount << " of R" << (*i).resi << "\n";
-                            blockedRequests.erase(i++);
-                        } else {
-                            i++;
-                        }
+                logRel(shclk, buf->data, blockedRequests.size());
+                auto i = blockedRequests.begin();
+                while (i != blockedRequests.end()) {
+                    if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
+                        msgsend(1, (*i).pid+2);
+                        logUnblock(shclk, (*i));
+                        blockedRequests.erase(i++);
+                    } else {
+                        i++;
                     }
                 }
             } else if (buf->data.status == TERM) {
-                std::cout << shclk->tostring() << ": PID " << buf->data.pid << " terminating\n";
-                for (int i : drange) {
+                for (int i : range(20)) {
                     r.release(buf->data.pid, i, r.desc[i].alloc[buf->data.pid]);
                 }
-                std::cout << shclk->tostring() << ": Released all resources for PID " << buf->data.pid << "\n";
                 waitforchildpid(buf->data.realpid, conc_count);
                 r.unsetpid(buf->data.pid);
-                if (blockedRequests.size()) {
-                    std::cout << shclk->tostring() << ": Checking if any processes can be unblocked (Currently " << blockedRequests.size() << " blocked)\n";
-                    auto i = blockedRequests.begin();
-                    while (i != blockedRequests.end()) {
-                        if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
-                            std::cout << shclk->tostring() << ": Unblocking PID " << (*i).pid << " and granting request for " << (*i).resamount << " of R" << (*i).resi << "\n";
-                            msgsend(1, (*i).pid+2);
-                            blockedRequests.erase(i++);
-                        } else {
-                            i++;
-                        }
+                logTerm(shclk, buf->data, blockedRequests.size());
+                auto i = blockedRequests.begin();
+                while (i != blockedRequests.end()) {
+                    if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
+                        msgsend(1, (*i).pid+2);
+                        logUnblock(shclk, (*i));
+                        blockedRequests.erase(i++);
+                    } else {
+                        i++;
                     }
                 }
             }
         } else {
             // std::cout << shclk->tostring() << ": Waiting\n";
         }
-        shclk->inc(1e6);
+        shclk->inc(2e5);
     }
-    std::cout << shclk->tostring() << ": Terminated with " <<  blockedRequests.size() << " blocked processes\n";
+
+    std::cout << logExit(shclk, quittype, max_count) << "\n";
+    std::cout << "For simulation details, please see " << getLogPath() << "\n";
     cleanup(shclk, r, conc_count);
+
 }
 
 int main(int argc, char** argv) {
@@ -168,13 +159,13 @@ int main(int argc, char** argv) {
     std::vector<std::string> opts{};    // sacrificial vector
     bool flags[2] = {false, false};    // -h, -v
     int optind = getcliarg(argc, argv, "", "hv", opts, flags);
-    std::string logfile = "output-" + epochstr() + ".log";
+    createLogFile(runpath, 100000, flags[1]); //do not exceed 10k lines
     int max_time = 5;
     // this line will terminate the program if any options are mis-set
     testopts(argc, argv, pref, optind, flags);
     // set up kill timer
     alarm(max_time);
-    main_loop(logfile, runpath);
+    main_loop(runpath);
     // done
     return 0;
 }

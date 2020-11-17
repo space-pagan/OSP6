@@ -3,10 +3,11 @@
  * Last Edit:   November 16, 2020
  */
 
+#include "util.h"
 #include "res_handler.h"
 
 void resman::stateclaim(int PID, int resclaim[20]) {
-    for (int i : drange) {
+    for (int i : range(20)) {
         this->desc[i].claim[PID] = resclaim[i];
     }
     started[PID] = true;
@@ -14,25 +15,25 @@ void resman::stateclaim(int PID, int resclaim[20]) {
 
 bool resman::isSafe() {
     int currentavail[20];
-    for (int i : drange) {
+    for (int i : range(20)) {
         currentavail[i] = this->desc[i].avail;
     }
     bool running[18];
-    for (int PID : prange) {
+    for (int PID : range(18)) {
         running[PID] = this->started[PID];
     }
     while(!0) {
         bool claimsatisfied = false;
-        for (int PID : prange) {
+        for (int PID : range(18)) {
             if (running[PID]) {
                 claimsatisfied = true;
-                for (int descID : drange) {
+                for (int descID : range(20)) {
                     if (this->desc[descID].claim[PID] -
                         this->desc[descID].alloc[PID] > currentavail[descID])
                         claimsatisfied = false;
                 }
                 if (claimsatisfied) {
-                    for (int descID : drange)
+                    for (int descID : range(20))
                         currentavail[descID] += this->desc[descID].alloc[PID];
                     running[PID] = false;
                     break;
@@ -41,7 +42,7 @@ bool resman::isSafe() {
         }
         if (!claimsatisfied) return false;
         bool nonerunning = true;
-        for (int PID : prange) nonerunning &= !running[PID];
+        for (int PID : range(18)) nonerunning &= !running[PID];
         if (nonerunning) return true;
     }
 }
@@ -82,24 +83,24 @@ void resman::release(int PID, int descID, int instances) {
 void resman::printAlloc() {
     // print header:
     printf("    ");
-    for (int j : drange) {
+    for (int j : range(20)) {
         printf("R%-2d ", j);
     }
     printf("\n");
     printf("A   ");
-    for (int j : drange)
+    for (int j : range(20))
         printf("%2d  ", this->desc[j].avail);
     printf("\n");
-    for (int PID : prange) {
+    for (int PID : range(18)) {
         printf("P%-2d ", PID);
-        for (int descID : drange)
+        for (int descID : range(20))
             printf("%2d  ", this->desc[descID].alloc[PID]); 
         printf("\n");
     }
 }
 
 int resman::findfirstunset() {
-    for ( int i : prange ) if (!this->bitmap[i]) return i;
+    for (int i : range(18)) if (!this->bitmap[i]) return i;
     return -1;
 }
 

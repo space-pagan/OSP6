@@ -14,6 +14,7 @@
 #include <cstring>               //strcpy()
 #include <sys/stat.h>            //stat()
 #include "error_handler.h"       //perrandquit()
+#include "util.h"
 #include "child_handler.h"       //function defs for self
 
 std::set<pid_t> PIDS;
@@ -35,7 +36,7 @@ char** makeargv(std::string line, int& size) {
     // tokens, plus nullptr
     size = argvector.size();
     char** out = new char*[size];
-    for (int i = 0; i < size-1; i++) {
+    for (int i : range(size-1)) {
         // instantiate the inner array and copy back the token
         out[i] = new char[argvector[i].size()];
         strcpy(out[i], argvector[i].c_str());
@@ -48,7 +49,7 @@ char** makeargv(std::string line, int& size) {
 
 void freeargv(char** argv, int size) {
     // deallocate a char*[x] created with new[] where x=size
-    for (int x = 0; x < size; x++) {
+    for (int x : range(size)) {
         // deallocate inner arrays
         delete[] argv[x];
     }

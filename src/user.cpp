@@ -11,6 +11,7 @@
 #include "file_handler.h"    //add_outfile_append(), writeline()
 #include "sys_clk.h"         //struct clk
 #include "res_handler.h"     //Descriptor
+#include "util.h"
 
 volatile bool earlyquit = false;
 
@@ -31,17 +32,18 @@ int main(int argc, char **argv) {
     Descriptor* desc = (Descriptor*)shmlookup(2);
     int* sysmax = (int*)shmlookup(3);
     float startTime = shclk->tofloat();
-    float nextActionTime = shclk->nextrand(10e6);
+    long actConstant = 10e6;
+    float nextActionTime = shclk->nextrand(actConstant);
     float termActionTime;
     bool maybeTerm = false;
-    int reqChance = 60;
-    int termChance = 20;
+    int reqChance = 55;
+    int termChance = 4;
 
     pcbmsgbuf* buf = new pcbmsgbuf;
     buf->mtype = 1;
     buf->data.pid = pid;
     buf->data.status = CLAIM;
-    for (int i = 0; i < 20; i++) {
+    for (int i : range(20)) {
         buf->data.resarray[i] = rand() % sysmax[i];
     }
     msgsend(1, buf);
@@ -69,10 +71,10 @@ int main(int argc, char **argv) {
                 // request a new resource
                 int reqi = -1;
                 bool requestable = false;
-                for (int i = 0; i < 20; i++)
+                for (int i : range(20))
                     if (desc[i].claim[pid] - desc[i].alloc[pid] > 0) requestable = true;
                 if (!requestable) {
-                    nextActionTime = shclk->nextrand(10e6);
+                    nextActionTime = shclk->nextrand(actConstant);
                     continue;
                 }
                 while (requestable && reqi < 0) {
@@ -90,13 +92,13 @@ int main(int argc, char **argv) {
             } else {
                 int reli = -1;
                 bool releaseable = false;
-                for (int i = 0; i < 20; i++) {
+                for (int i : range(20)) {
                     if (desc[i].alloc[pid]) {
                         releaseable = true;
                     }
                 }
                 if (!releaseable) {
-                    nextActionTime = shclk->nextrand(10e6);
+                    nextActionTime = shclk->nextrand(actConstant);
                     continue;
                 }
                 while (releaseable && reli < 0) {
@@ -110,7 +112,7 @@ int main(int argc, char **argv) {
                 msgsend(1, buf);
                 msgreceive(1, pid+2); // sync with oss
             }
-            nextActionTime = shclk->nextrand(10e6);
+            nextActionTime = shclk->nextrand(actConstant);
         }
     }
 }

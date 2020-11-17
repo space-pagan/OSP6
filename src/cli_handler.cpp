@@ -10,6 +10,7 @@
 #include <vector>               //std::vector
 #include <sys/stat.h>           //stat()
 #include "error_handler.h"      //custerrhelpprompt()
+#include "util.h"
 #include "cli_handler.h"        //Self func defs
 
 char* getoptstr(const char* options, const char* flags) {
@@ -21,11 +22,11 @@ char* getoptstr(const char* options, const char* flags) {
     // leading : means that getopt returns ':' if required argument is missing
     optstr[0] = ':';
     int i = 1;
-    for (int j = 0; j < optlen; j++) {
+    for (int j : range(optlen)) {
         optstr[i++] = options[j];
         optstr[i++] = ':';
     }
-    for (int j = 0; j < flglen; j++) {
+    for (int j : range(flglen)) {
         optstr[i++] = flags[j];
     }
     return optstr;
@@ -52,7 +53,7 @@ int getcliarg(int argc, char** argv, const char* options, \
         }
         // check if the matched item is an option
         int optindex = -1;
-        for (int j = 0; j < (int)strlen(options); j++) {
+        for (int j : range((int)strlen(options))) {
             if (c == options[j]) {
                 optindex = j;
                 // yes, set optout to argument value
@@ -62,7 +63,7 @@ int getcliarg(int argc, char** argv, const char* options, \
         }
         if (optindex == -1) {
             // optindex not set, match must be a flag
-            for (int j = 0; j < (int)strlen(flags); j++) {
+            for (int j : range((int)strlen(flags))) {
                 if (c == flags[j]) {
                     // set corresponding flagout
                     flagout[j] = true;

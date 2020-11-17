@@ -12,8 +12,9 @@
 #include <cstring>              //strcpy()
 #include <set>                  //set
 #include "error_handler.h"      //perrandquit()
-#include "shm_handler.h"        //Self func defs
 #include "file_handler.h"       //add_infile(), readline()
+#include "util.h"
+#include "shm_handler.h"        //Self func defs
 
 // store references to all created shared memory objects for easier cleanup
 std::set<int> shmsegments;
@@ -172,7 +173,7 @@ void semlockall(int semid, int semsize) {
     // attempt to lock all semaphores in semarray with id semid
     // This probably will never be used
     struct sembuf op[semsize];
-    for (int i = 0; i < semsize; i++) {
+    for (int i : range(semsize)) {
         op[i].sem_num = i;
         op[i].sem_op = -1;
         op[i].sem_flg = 0;
