@@ -87,10 +87,14 @@ void main_loop(std::string logfile, std::string runpath) {
                 nextSpawnTime = shclk->nextrand(spawnConst);
             }
         }
+        buf->mtype = 1; // set explicitly
         if (msgreceivenw(1, buf)) {
             if (buf->data.status == CLAIM) {
-                // std::cout << shclk->tostring() << ": Claim stated by PID " << buf->data.pid << "\n";
+                std::cout << shclk->tostring() << ": PID " << buf->data.pid << " Max Claim: [";
+                for (int i : buf->data.resarray) std::cout << i << ", ";
+                std::cout << "]\n";
                 r.stateclaim(buf->data.pid, buf->data.resarray);
+                msgsend(1, buf->data.pid+2);
             } else if (buf->data.status == REQ) {
                 int allocated = r.allocate(buf->data.pid, buf->data.resi, buf->data.resamount);
                 if (allocated == 0) {
@@ -105,6 +109,7 @@ void main_loop(std::string logfile, std::string runpath) {
                 }
             } else if (buf->data.status == REL) {
                 r.release(buf->data.pid, buf->data.resi, buf->data.resamount);
+                msgsend(1, buf->data.pid+2);
                 std::cout << shclk->tostring() << ": PID " << buf->data.pid << " released " << buf->data.resamount << " of R" << buf->data.resi << "\n";
                 if (blockedRequests.size()) {
                     std::cout << shclk->tostring() << ": Checking if any processes can be unblocked (Currently " << blockedRequests.size() << " blocked)\n";

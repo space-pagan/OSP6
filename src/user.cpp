@@ -45,6 +45,7 @@ int main(int argc, char **argv) {
         buf->data.resarray[i] = rand() % sysmax[i];
     }
     msgsend(1, buf);
+    msgreceive(1, pid+2); // sync with oss to make sure that claim is set properly
     shmdetach(sysmax);
 
     while(!0) {
@@ -85,7 +86,7 @@ int main(int argc, char **argv) {
                 buf->data.resi = reqi;
                 buf->data.resamount = reqamount;
                 msgsend(1, buf);
-                msgreceive(1, 2+pid); // blocks until acknowledged
+                msgreceive(1, pid+2); // blocks until acknowledged
             } else {
                 int reli = -1;
                 bool releaseable = false;
@@ -107,6 +108,7 @@ int main(int argc, char **argv) {
                 buf->data.resi = reli;
                 buf->data.resamount = relamount;
                 msgsend(1, buf);
+                msgreceive(1, pid+2); // sync with oss
             }
             nextActionTime = shclk->nextrand(10e6);
         }

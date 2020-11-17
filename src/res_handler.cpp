@@ -53,8 +53,7 @@ int resman::allocate(int PID, int descID) {
 int resman::allocate(int PID, int descID, int instances) {
     if (this->desc[descID].alloc[PID] + instances >
         this->desc[descID].claim[PID]) {
-        customerrorquit("PID " + std::to_string(PID) + " requested more than"
-            + " initial claim of R" + std::to_string(descID));
+        customerrorquit("PID " + std::to_string(PID) + " requested " + std::to_string(instances) + " of R" + std::to_string(descID) + " but has a maximum claim of " + std::to_string(this->desc[descID].claim[PID]));
     } 
     if (instances > this->desc[descID].avail) {
         return 1;
