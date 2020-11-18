@@ -87,29 +87,6 @@ void shmdestroy(int key_id) {
     if (shmctl(shmlookupid(key_id), IPC_RMID, NULL) == -1) perrandquit();
 }
 
-void shmfromfile(const char* filename, int& id, int maxlines) {
-    // read up to maxlines non-blank lines from file "filename" and
-    // create a shm segment storing each line
-    // increment external id to match the next available id to use for
-    // shared segment creation
-    int fileid = add_infile(filename);
-    int linecount = 0;
-    std::string line;
-    while (readline(fileid, line) && (linecount++ < maxlines)) {
-        // shmcreate fails if size=0, skip blank lines
-        if (line.size() == 0) {
-            linecount--; 
-            continue;
-        }
-        char* shmstr = (char*)shmcreate(line.size(), id);
-        // copy contents of the read line to the shared memory segment
-        strcpy(shmstr, line.c_str());
-        // detach shared memory segment. any further operations will need
-        // to call shmlookup
-        shmdetach(shmstr);
-    }
-}
-
 int semcreate(int num, int& key_id) {
     // creates a semaphore array with num semaphores at key_id
     int semid = semget(getkeyfromid(key_id++), num, IPC_CREAT|IPC_EXCL|0660);
