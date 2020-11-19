@@ -13,20 +13,20 @@ enum IOMODE {
 
 struct File {
     std::string name;
-    std::fstream* stream;
+    //std::fstream* stream; // will not work with gcc 4.9.5
     std::ios_base::openmode mode;
 
     File() {};
     File(std::string filepath, IOMODE open_mode) {
         name = filepath;
         mode = (std::ios_base::openmode)open_mode;
-        if (!stream->is_open()) 
-            customerrorquit("Unable to open file '" + name + "'!");
+        // if (!stream->is_open()) 
+            // customerrorquit("Unable to open file '" + name + "'!");
     }
 
     File(const File& old) {
         name = old.name;
-        stream = old.stream;
+        // stream = old.stream;
         mode = old.mode;
     }
     
