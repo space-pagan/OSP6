@@ -8,6 +8,19 @@
 #include "error_handler.h"   //customerrorquit()
 #include "file_handler.h"    //Self func decs
 
+File::File(std::string filepath, IOMODE open_mode) {
+    name = filepath;
+    mode = (std::ios_base::openmode)open_mode;
+    // if (!stream->is_open()) 
+        // customerrorquit("Unable to open file '" + name + "'!");
+}
+
+File::File(const File& old) {
+    name = old.name;
+    // stream = old.stream;
+    mode = old.mode;
+}
+
 // int File::readline(std::string& outstr) {
     // if (std::getline(*this->stream, outstr)) return 1;
     // if (this->stream->bad()) customerrorquit("Unable to read from file");

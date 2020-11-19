@@ -7,11 +7,7 @@ struct clk{
     long clk_s;
     long clk_n;
 
-    clk() {
-        clk_s = 0;
-        clk_n = 0;
-    }
-
+    clk();
     float tofloat();
     std::string tostring();
     long tonano();

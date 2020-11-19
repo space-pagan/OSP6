@@ -12,19 +12,8 @@ struct Log {
     int maxlinecount;
     bool verbose;
     
-    Log(std::string logpath, int max, bool verb) { 
-        logfile = File(logpath, APPEND);
-        maxlinecount = max;
-        verbose = verb;
-    }
-
-    Log(const Log& old) {
-        logfile = old.logfile;
-        linecount = old.linecount;
-        maxlinecount = old.maxlinecount;
-        verbose = old.verbose;
-    }
-
+    Log(std::string logpath, int max, bool verb);
+    Log(const Log& old);
     void logline(std::string msg, bool force=false);
     void logNewPID(clk* shclk, int pid, int max_count);
     void logMaxClaim(clk* shclk, Data d);

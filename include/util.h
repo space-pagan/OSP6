@@ -2,23 +2,18 @@
 #define UTIL_H
 
 #include <string>
+#include <cmath>
+#include "error_handler.h"
 
 struct range {
     int* data;
     int* ptr;
     int size;
+    range(int T);
+    range(int S, int T);
+    range(int S, int T, int U);
     const int* begin();
     const int* end();
-    range(int T) {
-        data = new int[T];
-        size = T;
-        int i = 0;
-        while (i < T) {
-            data[i] = i;
-            i++;
-        }
-        ptr = data;
-    }
 };
 
 std::string epochstr(); // gets the unix epoch as a string

@@ -6,6 +6,41 @@
 #include "util.h"
 #include "res_handler.h"
 
+Descriptor::Descriptor(int instances, bool share) {
+    avail = instances;
+    shareable = share;
+    for (int i : range(18)) {
+        claim[i] = 0;
+        alloc[i] = 0;
+    }
+}
+
+Descriptor::Descriptor(const Descriptor& old) {
+    avail = old.avail;
+    shareable = old.shareable;
+    for (int i : range(18)) {
+        claim[i] = old.claim[i];
+        alloc[i] = old.alloc[i];
+    }
+}
+
+resman::resman(int& currID) {
+    desc = (Descriptor*)shmcreate(sizeof(Descriptor)*20, currID);
+    sysmax = (int*)shmcreate(sizeof(int)*20, currID);
+    for (int i : range(20)) {
+        desc[i] = Descriptor(1 + rand() % 10);
+        sysmax[i] = desc[i].avail;
+    }
+    int numshare = 0;
+    int maxshare = 3 + rand() % 3;
+    while (numshare < maxshare) {
+        desc[rand() % 20].shareable = true;
+        numshare++;
+    }
+    for (int i : range(18)) started[i] = false;
+}
+
+
 void resman::stateclaim(int PID, int resclaim[20]) {
     for (int i : range(20)) {
         this->desc[i].claim[PID] = resclaim[i];

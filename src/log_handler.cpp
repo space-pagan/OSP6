@@ -9,6 +9,19 @@
 #include "util.h"
 #include "log_handler.h"
 
+Log::Log(std::string logpath, int max, bool verb) { 
+    logfile = File(logpath, APPEND);
+    maxlinecount = max;
+    verbose = verb;
+}
+
+Log::Log(const Log& old) {
+    logfile = old.logfile;
+    linecount = old.linecount;
+    maxlinecount = old.maxlinecount;
+    verbose = old.verbose;
+}
+
 void Log::logline(std::string msg, bool force) {
     if (force || this->linecount < this->maxlinecount) {
         this->logfile.writeline(msg);
@@ -123,7 +136,8 @@ void Log::logAlloc(Descriptor* desc, int* sysmax) {
     char buf[256]; 
     char* pos = buf;
     this->logline("Current System Resources:");
-
+    this->logline(std::string("        ") + "RX* indicates a shared/infinite" +
+        " allocation resource, and will not cause deadlock");
     //print Resource column headers
     pos += sprintf(pos, "        ");
     for (int j : range(20)) {

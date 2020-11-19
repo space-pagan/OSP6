@@ -22,12 +22,16 @@ char* getoptstr(const char* options, const char* flags) {
     // leading : means that getopt returns ':' if required argument is missing
     optstr[0] = ':';
     int i = 1;
-    for (int j : range(optlen)) {
-        optstr[i++] = options[j];
-        optstr[i++] = ':';
+    if (optlen) {
+        for (int j : range(optlen)) {
+            optstr[i++] = options[j];
+            optstr[i++] = ':';
+        }
     }
-    for (int j : range(flglen)) {
-        optstr[i++] = flags[j];
+    if (flglen) {
+        for (int j : range(flglen)) {
+            optstr[i++] = flags[j];
+        }
     }
     return optstr;
 }
@@ -53,15 +57,19 @@ int getcliarg(int argc, char** argv, const char* options, \
         }
         // check if the matched item is an option
         int optindex = -1;
-        for (int j : range((int)strlen(options))) {
-            if (c == options[j]) {
-                optindex = j;
-                // yes, set optout to argument value
-                optout[optindex] = std::string(optarg);
-                break;
+        int optlen = strlen(options);
+        int flglen = strlen(flags);
+        if (optlen) {
+            for (int j : range(optlen)) {
+                if (c == options[j]) {
+                    optindex = j;
+                    // yes, set optout to argument value
+                    optout[optindex] = std::string(optarg);
+                    break;
+                }
             }
         }
-        if (optindex == -1) {
+        if (optindex == -1 && flglen) {
             // optindex not set, match must be a flag
             for (int j : range((int)strlen(flags))) {
                 if (c == flags[j]) {

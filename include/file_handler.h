@@ -17,19 +17,8 @@ struct File {
     std::ios_base::openmode mode;
 
     File() {};
-    File(std::string filepath, IOMODE open_mode) {
-        name = filepath;
-        mode = (std::ios_base::openmode)open_mode;
-        // if (!stream->is_open()) 
-            // customerrorquit("Unable to open file '" + name + "'!");
-    }
-
-    File(const File& old) {
-        name = old.name;
-        // stream = old.stream;
-        mode = old.mode;
-    }
-    
+    File(std::string filepath, IOMODE open_mode);
+    File(const File& old);
     int readline(std::string& outstr);
     void writeline(std::string line);
     void write(std::string msg);

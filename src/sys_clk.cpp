@@ -8,6 +8,11 @@
 #include "util.h"
 #include "sys_clk.h"
 
+clk::clk() {
+    clk_s = 0;
+    clk_n = 0;
+}
+
 float clk::tofloat() {
     return this->clk_s + (float)this->clk_n/(float)1e9;
 }
