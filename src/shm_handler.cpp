@@ -17,9 +17,9 @@
 #include "shm_handler.h"        //Self func defs
 
 // store references to all created shared memory objects for easier cleanup
-std::set<int> shmsegments;
-std::set<int> semaphores;
-std::set<int> msgqueues;
+static std::set<int> shmsegments;
+static std::set<int> semaphores;
+static std::set<int> msgqueues;
 
 struct msgbuffer {
     long mtype;

@@ -1,7 +1,6 @@
 #ifndef SYS_CLK_H
 #define SYS_CLK_H
 
-#include <stdlib.h>             //srand(), rand()
 #include <string>               //std::string, to_string()
 
 struct clk{
@@ -22,8 +21,5 @@ struct clk{
     void dec(long ns);
     float nextrand(long maxns);
 };
-
-std::string epochstr();
-long floattimetonano(float time);
 
 #endif

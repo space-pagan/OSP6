@@ -8,6 +8,7 @@
 #include <cstring>
 #include <stdlib.h>
 #include <bitset>
+#include <vector>
 #include "shm_handler.h"
 #include "error_handler.h"
 
@@ -17,7 +18,7 @@ struct Descriptor {
     int alloc[18];
     bool shareable = false;
 
-    Descriptor(int instances, bool share) {
+    Descriptor(int instances, bool share=false) {
         avail = instances;
         shareable = share;
         for (int i : prange) {
@@ -41,13 +42,20 @@ struct resman {
     bool started[18];
     int* sysmax;
     std::bitset<18> bitmap;
+    std::vector<int> lastBlockTest;
 
     resman(int& currID) {
         desc = (Descriptor*)shmcreate(sizeof(Descriptor)*20, currID);
         sysmax = (int*)shmcreate(sizeof(int)*20, currID);
         for (int i : drange) {
-            desc[i] = Descriptor(1 + rand() % 10, false);
+            desc[i] = Descriptor(1 + rand() % 10);
             sysmax[i] = desc[i].avail;
+        }
+        int numshare = 0;
+        int maxshare = 3 + rand() % 3;
+        while (numshare < maxshare) {
+            desc[rand() % 20].shareable = true;
+            numshare++;
         }
         for (int i : prange) started[i] = false;
     }
@@ -61,8 +69,6 @@ struct resman {
     int findfirstunset();
     void findandsetpid(int& pid);
     void unsetpid(int pid);
-
-    void printAlloc();
 };
 
 #endif

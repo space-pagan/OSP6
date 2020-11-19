@@ -14,6 +14,7 @@ void resman::stateclaim(int PID, int resclaim[20]) {
 }
 
 bool resman::isSafe() {
+    this->lastBlockTest.clear();
     int currentavail[20];
     for (int i : range(20)) {
         currentavail[i] = this->desc[i].avail;
@@ -42,7 +43,13 @@ bool resman::isSafe() {
         }
         if (!claimsatisfied) return false;
         bool nonerunning = true;
-        for (int PID : range(18)) nonerunning &= !running[PID];
+        for (int PID : range(18)) {
+            if (running[PID]) {
+                nonerunning = false;
+            } else {
+                this->lastBlockTest.push_back(PID);
+            }
+        }
         if (nonerunning) return true;
     }
 }
@@ -56,6 +63,10 @@ int resman::allocate(int PID, int descID, int instances) {
         this->desc[descID].claim[PID]) {
         customerrorquit("PID " + std::to_string(PID) + " requested " + std::to_string(instances) + " of R" + std::to_string(descID) + " but has a maximum claim of " + std::to_string(this->desc[descID].claim[PID]));
     } 
+    if (this->desc[descID].shareable) {
+        this->desc[descID].alloc[PID] += instances;
+        return 0;
+    }
     if (instances > this->desc[descID].avail) {
         return 1;
     } else {
@@ -77,25 +88,8 @@ void resman::release(int PID, int descID) {
 
 void resman::release(int PID, int descID, int instances) {
     this->desc[descID].alloc[PID] -= instances;
-    this->desc[descID].avail += instances;
-}
-
-void resman::printAlloc() {
-    // print header:
-    printf("    ");
-    for (int j : range(20)) {
-        printf("R%-2d ", j);
-    }
-    printf("\n");
-    printf("A   ");
-    for (int j : range(20))
-        printf("%2d  ", this->desc[j].avail);
-    printf("\n");
-    for (int PID : range(18)) {
-        printf("P%-2d ", PID);
-        for (int descID : range(20))
-            printf("%2d  ", this->desc[descID].alloc[PID]); 
-        printf("\n");
+    if (!this->desc[descID].shareable) {
+        this->desc[descID].avail += instances;
     }
 }
 

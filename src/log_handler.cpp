@@ -17,11 +17,13 @@ void Log::logline(std::string msg, bool force) {
 }
 
 void Log::logNewPID(clk* shclk, int pid, int max_count) {
+    if (!this->verbose) return;
     this->logline(shclk->tostring() + ": Created PID " + 
             std::to_string(pid) + " (" + std::to_string(max_count) + "/40)");
 }
 
 void Log::logMaxClaim(clk* shclk, Data d) {
+    if (!this->verbose) return;
     std::string out = shclk->tostring() + ": PID " + std::to_string(d.pid) +
         " Max Claim: [";
     for (int i : range(19)) {
@@ -31,22 +33,42 @@ void Log::logMaxClaim(clk* shclk, Data d) {
     this->logline(out);
 }
 
-std::string logReqBaseMsg(clk* shclk, Data d) {
+std::string logReqBaseMsg(clk* shclk, Data d, bool shareable) {
     return shclk->tostring() + ": PID " + std::to_string(d.pid) +
-        " requested " + std::to_string(d.resamount) + " of R" +
-        std::to_string(d.resi) + " and was ";
+        " requested " + std::to_string(d.resamount) + " of " +
+        (shareable ? "shareable resource " : "") +
+        "R" + std::to_string(d.resi) + " and was ";
 }
 
-void Log::logReqGranted(clk* shclk, Data d) {
-    this->logline(logReqBaseMsg(shclk, d) + "granted");
+void Log::logDeadlockTest(clk* shclk, bool issafe, std::vector<int> blocked) {
+    this->logline(shclk->tostring() + ": Deadlock avoidance algorithm ran");
+    this->logline(std::string("             ") + (issafe ? "Safe":"Unsafe") + 
+            " state after granting request");
+    std::string out;
+    // if (!issafe) {
+        // for (int PID : range(blocked.size()-1)) {
+            // out += "P" + std::to_string(PID) + ", ";
+        // }
+        // out += "P" + std::to_string(blocked.back()) + " could deadlock";
+        // this->logline(out);
+    // }
 }
 
-void Log::logReqDenied(clk* shclk, Data d) {
-    this->logline(logReqBaseMsg(shclk, d) + "denied due to lack of availability");
+void Log::logReqGranted(clk* shclk, Data d, bool shareable, std::vector<int> blocked) {
+    if (!this->verbose) return;
+    this->logline(logReqBaseMsg(shclk, d, shareable) + "granted");
+    this->logDeadlockTest(shclk, true, blocked);
 }
 
-void Log::logReqDeadlock(clk* shclk, Data d) {
-    this->logline(logReqBaseMsg(shclk, d) + "denied due to possible deadlock");
+void Log::logReqDenied(clk* shclk, Data d, bool shareable) {
+    this->logline(logReqBaseMsg(shclk, d, shareable) + 
+        "denied due to lack of availability");
+}
+
+void Log::logReqDeadlock(clk* shclk, Data d, bool shareable, std::vector<int> blocked) {
+    this->logline(logReqBaseMsg(shclk, d, shareable) + 
+        "denied due to possible deadlock");
+    this->logDeadlockTest(shclk, false, blocked);
 }
 
 void Log::logUnblockCheck(clk* shclk, Data d, int blockSize) {
@@ -57,6 +79,7 @@ void Log::logUnblockCheck(clk* shclk, Data d, int blockSize) {
 }
 
 void Log::logRel(clk* shclk, Data d, int blockSize) {
+    if (!this->verbose) return;
     this->logline(shclk->tostring() + ": PID " + std::to_string(d.pid) +
         " released " + std::to_string(d.resamount) + " of R" +
         std::to_string(d.resi));
@@ -70,6 +93,7 @@ void Log::logUnblock(clk* shclk, Data d) {
 }
 
 void Log::logTerm(clk* shclk, Data d, int blockSize) {
+    if (!this->verbose) return;
     this->logline(shclk->tostring() + ": PID " + std::to_string(d.pid) +
         " terminated and released all allocated resources");
     this->logUnblockCheck(shclk, d, blockSize);
@@ -89,4 +113,48 @@ std::string Log::logExit(clk* shclk, int quittype, int max_count) {
     }
     this->logline(shclk->tostring() + ": " + out, true);
     return out + " at system time " + shclk->tostring();
+}
+
+void Log::logAlloc(Descriptor* desc, int* sysmax) {
+    if (!this->verbose) return;
+    char buf[256]; 
+    char* pos = buf;
+    this->logline("Current System Resources:");
+
+    //print Resource column headers
+    pos += sprintf(pos, "        ");
+    for (int j : range(20)) {
+        pos += sprintf(pos, "R%d%c%s ", j, 
+                desc[j].shareable ? '*' : ' ', 
+                j < 10 ? " " : "");
+    }
+    this->logline(buf);
+    pos = buf;
+    memset(buf, 0, 256);
+
+    //print system maximum
+    pos += sprintf(pos, "Max     ");
+    for (int j : range(20))
+        pos += sprintf(pos, "%-2d   ", sysmax[j]);
+    this->logline(buf);
+    pos = buf;
+    memset(buf, 0, 256);
+
+    //print currently available
+    pos += sprintf(pos, "Avail   ");
+    for (int j : range(20))
+        pos += sprintf(pos, "%-2d   ", desc[j].avail);
+    this->logline(buf);
+    pos = buf;
+    memset(buf, 0, 256);
+
+    //print allocated to each process
+    for (int PID : range(18)) {
+        pos += sprintf(pos, "P%-2d     ", PID);
+        for (int descID : range(20))
+            pos += sprintf(pos, "%-2d   ", desc[descID].alloc[PID]);
+        this->logline(buf);
+        pos = buf;
+        memset(buf, 0, 256);
+    }
 }

@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <string>
+
 struct range {
     int* data;
     int* ptr;
@@ -18,5 +20,8 @@ struct range {
         ptr = data;
     }
 };
+
+std::string epochstr(); // gets the unix epoch as a string
+long floattimetons(float time); // convert s.xxxxxx to ns
 
 #endif

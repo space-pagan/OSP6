@@ -56,7 +56,7 @@ void testopts(int argc, char** argv, std::string pref, int optind, bool* flags) 
         "Unknown argument '" + std::string(argv[optind]) + "'");
 }
 
-void unblockAfterRelease(clk* shclk, resman& r, std::list<Data>& blocked, Log log) {
+void unblockAfterRelease(clk* shclk, resman& r, std::list<Data>& blocked, Log& log) {
     auto i = blocked.begin();
     while (i != blocked.end()) {
         if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
@@ -69,12 +69,13 @@ void unblockAfterRelease(clk* shclk, resman& r, std::list<Data>& blocked, Log lo
     }
 }
 
-void main_loop(std::string runpath, Log log) {
+void main_loop(std::string runpath, Log& log) {
     int max_count = 0;    //count of children created
     int conc_count = 0;   //count of currently running children
     int currID = 0;       //value of next unused ftok id
     int spawnConst = 500000000; //the maximum time between new fork calls
     int pid;              // pid for new child
+    int reqs = 0;         // track number of requests for logging
     srand(getpid());      //set random seed;
     // create shared clock
     clk* shclk = (clk*)shmcreate(sizeof(clk), currID);
@@ -103,17 +104,28 @@ void main_loop(std::string runpath, Log log) {
                 r.stateclaim(buf->data.pid, buf->data.resarray);
                 msgsend(1, buf->data.pid+2);
             } else if (buf->data.status == REQ) {
+                reqs++;
                 int allocated = r.allocate(
                         buf->data.pid, buf->data.resi, buf->data.resamount);
                 if (allocated == 0) {
                     msgsend(1, buf->data.pid+2);
-                    log.logReqGranted(shclk, buf->data);
+                    log.logReqGranted(
+                        shclk, buf->data, 
+                        r.desc[buf->data.resi].shareable,
+                        r.lastBlockTest);
                 } else if (allocated == 1) {
                     blockedRequests.push_back(buf->data);
-                    log.logReqDenied(shclk, buf->data);
+                    log.logReqDenied(
+                        shclk, buf->data, r.desc[buf->data.resi].shareable);
                 } else if (allocated == 2) {
                     blockedRequests.push_back(buf->data);
-                    log.logReqDeadlock(shclk, buf->data);
+                    log.logReqDeadlock(
+                        shclk, buf->data, 
+                        r.desc[buf->data.resi].shareable,
+                        r.lastBlockTest);
+                }
+                if (reqs % 20 == 19) {
+                    log.logAlloc(r.desc, r.sysmax);
                 }
             } else if (buf->data.status == REL) {
                 r.release(buf->data.pid, buf->data.resi, buf->data.resamount);

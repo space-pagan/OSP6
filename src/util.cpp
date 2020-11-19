@@ -12,3 +12,13 @@ const int* range::begin() {
 const int* range::end() {
     return &(this->data[this->size]);
 }
+
+std::string epochstr() {
+    return std::to_string(time(0));
+}
+
+long floattimetons(float time) {
+    long s = (long)time;
+    long n = (long)((time - s) * 1e9);
+    return s*1e9 + n;
+}
