@@ -33,42 +33,45 @@ void Log::logMaxClaim(clk* shclk, Data d) {
     this->logline(out);
 }
 
-std::string logReqBaseMsg(clk* shclk, Data d, bool shareable) {
-    return shclk->tostring() + ": PID " + std::to_string(d.pid) +
+std::string logReqBaseMsg(clk* shclk, Data d, bool shareable, bool printclk) {
+    std::string out = printclk ? shclk->tostring() + ": ":ClockPadding(shclk);
+    return out + "PID " + std::to_string(d.pid) +
         " requested " + std::to_string(d.resamount) + " of " +
         (shareable ? "shareable resource " : "") +
         "R" + std::to_string(d.resi) + " and was ";
 }
 
-void Log::logDeadlockTest(clk* shclk, bool issafe, std::vector<int> blocked) {
+void Log::logDeadlockTest(clk* shclk, bool issafe, std::vector<int>& blocked) {
+    std::string out = ClockPadding(shclk);
     this->logline(shclk->tostring() + ": Deadlock avoidance algorithm ran");
-    this->logline(std::string("             ") + (issafe ? "Safe":"Unsafe") + 
+    this->logline(out + (issafe ? "Safe":"Unsafe") + 
             " state after granting request");
-    std::string out;
-    // if (!issafe) {
-        // for (int PID : range(blocked.size()-1)) {
-            // out += "P" + std::to_string(PID) + ", ";
-        // }
-        // out += "P" + std::to_string(blocked.back()) + " could deadlock";
-        // this->logline(out);
-    // }
+    if (!issafe) {
+        if (blocked.size()-1 > 0) {
+            for (int PID : range(blocked.size()-1)) {
+                out += "P" + std::to_string(PID) + ", ";
+            }
+        }
+        out += "P" + std::to_string(blocked.back()) + " could deadlock";
+        this->logline(out);
+    }
 }
 
-void Log::logReqGranted(clk* shclk, Data d, bool shareable, std::vector<int> blocked) {
+void Log::logReqGranted(clk* shclk, Data d, bool shareable, std::vector<int>& blocked) {
     if (!this->verbose) return;
-    this->logline(logReqBaseMsg(shclk, d, shareable) + "granted");
     this->logDeadlockTest(shclk, true, blocked);
+    this->logline(logReqBaseMsg(shclk, d, shareable, false) + "granted");
 }
 
 void Log::logReqDenied(clk* shclk, Data d, bool shareable) {
-    this->logline(logReqBaseMsg(shclk, d, shareable) + 
+    this->logline(logReqBaseMsg(shclk, d, shareable, true) + 
         "denied due to lack of availability");
 }
 
-void Log::logReqDeadlock(clk* shclk, Data d, bool shareable, std::vector<int> blocked) {
-    this->logline(logReqBaseMsg(shclk, d, shareable) + 
-        "denied due to possible deadlock");
+void Log::logReqDeadlock(clk* shclk, Data d, bool shareable, std::vector<int>& blocked) {
     this->logDeadlockTest(shclk, false, blocked);
+    this->logline(logReqBaseMsg(shclk, d, shareable, false) + 
+        "denied due to possible deadlock");
 }
 
 void Log::logUnblockCheck(clk* shclk, Data d, int blockSize) {

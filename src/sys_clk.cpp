@@ -5,6 +5,7 @@
 
 #include <ctime>
 #include <cstring>
+#include "util.h"
 #include "sys_clk.h"
 
 float clk::tofloat() {
@@ -57,4 +58,10 @@ float clk::nextrand(long maxns) {
 
 long clk::tonano() {
     return this->clk_s*1e9 + this->clk_n;
+}
+
+std::string ClockPadding(clk* shclk) {
+    std::string out = "  ";
+    for (int i : range(shclk->tostring().size())) out += " ";
+    return out;
 }

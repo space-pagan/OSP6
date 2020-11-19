@@ -41,15 +41,17 @@ bool resman::isSafe() {
                 }
             }
         }
-        if (!claimsatisfied) return false;
-        bool nonerunning = true;
-        for (int PID : range(18)) {
-            if (running[PID]) {
-                nonerunning = false;
-            } else {
-                this->lastBlockTest.push_back(PID);
+        if (!claimsatisfied) {
+            for (int PID : range(18)) {
+                if (running[PID] && this->started[PID]) {
+                    // std::cout << PID << " might deadlock\n";
+                    this->lastBlockTest.push_back(PID);
+                }
             }
+            return false;
         }
+        bool nonerunning = true;
+        for (int PID : range(18)) nonerunning &= !running[PID];
         if (nonerunning) return true;
     }
 }
@@ -106,5 +108,6 @@ void resman::findandsetpid(int& pid) {
 
 void resman::unsetpid(int pid) {
     this->bitmap.reset(pid);
+    this->started[pid] = false;
 }
 

@@ -22,4 +22,6 @@ struct clk{
     float nextrand(long maxns);
 };
 
+std::string ClockPadding(clk* shclk);
+
 #endif
