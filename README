@@ -11,6 +11,7 @@ Compilation:
         'make cleanrun' will delete bin/*.out and bin/*.log
 
 Running the program:
+        oss can be run with any runpath. bin/oss is a valid directive
         oss [OPTIONS]
 
         -h  : Display a MAN-Page style help message

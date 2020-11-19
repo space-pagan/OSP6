@@ -20,7 +20,6 @@ struct File {
     File(std::string filepath, IOMODE open_mode) {
         name = filepath;
         mode = (std::ios_base::openmode)open_mode;
-        stream = new std::fstream(name.c_str(), mode);
         if (!stream->is_open()) 
             customerrorquit("Unable to open file '" + name + "'!");
     }
