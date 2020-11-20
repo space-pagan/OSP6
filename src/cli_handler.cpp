@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     September 9, 2020
- * Last edit:   October 28, 2020
+ * Last edit:   November 19, 2020
  */
 
 #include <unistd.h>             //getopt()
@@ -22,12 +22,14 @@ char* getoptstr(const char* options, const char* flags) {
     // leading : means that getopt returns ':' if required argument is missing
     optstr[0] = ':';
     int i = 1;
+    // range will break if optlen is 0
     if (optlen) {
         for (int j : range(optlen)) {
             optstr[i++] = options[j];
             optstr[i++] = ':';
         }
     }
+    // range will break if flglen is 0
     if (flglen) {
         for (int j : range(flglen)) {
             optstr[i++] = flags[j];
@@ -47,6 +49,7 @@ int getcliarg(int argc, char** argv, const char* options, \
     opterr = 0;  // disable getopt printing error messages
 
     while ((c = getopt(argc, argv, optstr)) != -1) {
+        // handle error cases
         if (c == '?') {
             custerrhelpprompt("Unknown argument '-" +\
                     std::string(1, (char)optopt) +    "'");
@@ -59,8 +62,10 @@ int getcliarg(int argc, char** argv, const char* options, \
         int optindex = -1;
         int optlen = strlen(options);
         int flglen = strlen(flags);
+        // range will break if optlen is 0
         if (optlen) {
             for (int j : range(optlen)) {
+                // search if cli input is an option
                 if (c == options[j]) {
                     optindex = j;
                     // yes, set optout to argument value
@@ -71,7 +76,9 @@ int getcliarg(int argc, char** argv, const char* options, \
         }
         if (optindex == -1 && flglen) {
             // optindex not set, match must be a flag
+            // range will break if flglen is 0
             for (int j : range((int)strlen(flags))) {
+                // search if cli input is a flag
                 if (c == flags[j]) {
                     // set corresponding flagout
                     flagout[j] = true;

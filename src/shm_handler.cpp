@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     October 6, 2020
- * Last edit:   November 5, 2020
+ * Last edit:   November 19, 2020
  */
 
 #include <sys/types.h>          //key_t
@@ -22,6 +22,7 @@ static std::set<int> semaphores;
 static std::set<int> msgqueues;
 
 struct msgbuffer {
+    // used for 0-length messages
     long mtype;
 };
 

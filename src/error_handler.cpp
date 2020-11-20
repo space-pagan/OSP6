@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     September 10, 2020
- * Last edit:   October 28, 2020
+ * Last edit:   November 12, 2020
  */
 
 #include <string>               //string

@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     September 9, 2020
- * Last edit:   October 28, 2020
+ * Last edit:   November 17, 2020
  */
 
 #include <sys/types.h>           //pid_t
@@ -14,7 +14,7 @@
 #include <cstring>               //strcpy()
 #include <sys/stat.h>            //stat()
 #include "error_handler.h"       //perrandquit()
-#include "util.h"
+#include "util.h"                //range()
 #include "child_handler.h"       //function defs for self
 
 std::set<pid_t> PIDS;

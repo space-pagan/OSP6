@@ -1,6 +1,6 @@
 /* Author:      Zoya Samsonov
  * Created:     September 9, 2020
- * Last edit:   November 05, 2020
+ * Last edit:   November 19, 2020
  */
 
 #include <iostream>              //cout
@@ -47,6 +47,9 @@ void cleanup(clk* shclk, resman r, int& conc_count) {
 }
 
 void testopts(int argc, char** argv, std::string pref, int optind, bool* flags) {
+    // test options set by cli handler. Prints help message if help flag is set
+    // if any options provided not defined by cli handler, print an error here
+    // when this function returns, it is safe to proceed to the main loop
     if (flags[0]) {
         printhelp(pref);
         exit(0);
@@ -56,7 +59,12 @@ void testopts(int argc, char** argv, std::string pref, int optind, bool* flags) 
         "Unknown argument '" + std::string(argv[optind]) + "'");
 }
 
-void unblockAfterRelease(clk* shclk, resman& r, std::list<Data>& blocked, Log& log) {
+void unblockAfterRelease(clk* shclk, resman& r, std::list<Data>& blocked, 
+        Log& log) {
+    // check all requests saved in the blocked queue, to see if any can be
+    // granted. If so, the request is allocated, a 0-length message is sent to
+    // the child acknowledging that the request was granted, and the request 
+    // is removed from the blocked queue
     auto i = blocked.begin();
     while (i != blocked.end()) {
         if (r.allocate((*i).pid, (*i).resi, (*i).resamount) == 0) {
@@ -70,6 +78,9 @@ void unblockAfterRelease(clk* shclk, resman& r, std::list<Data>& blocked, Log& l
 }
 
 void handleClaim(clk* shclk, resman& r, Log& log, Data data) {
+    // processes a message from a child that it wants to state its max-claim
+    // by logging the claim, sending the claim to the resource manager,
+    // and acknowledging the child via 0-length message
     log.logMaxClaim(shclk, data);
     r.stateclaim(data.pid, data.resarray);
     msgsend(1, data.pid+2);
@@ -77,20 +88,25 @@ void handleClaim(clk* shclk, resman& r, Log& log, Data data) {
 
 void handleReq(clk* shclk, resman& r, Log& log, Data data, 
         std::list<Data>& blockedRequests, int& reqs) {
+    // processes a message from a child that it wants to request a resource
+    // by running the deadlock algorithm and either acknowledging the child's
+    // request with a zero-length message, or adding the request to the blocked
+    // queue. Appropriately logs the action, and prints the current resource
+    // allocation table every 20 requests
     reqs++;
     int allocated = r.allocate(
             data.pid, data.resi, data.resamount);
-    if (allocated == 0) {
+    if (allocated == 0) { // request granted
         msgsend(1, data.pid+2);
         log.logReqGranted(
             shclk, data, 
             r.desc[data.resi].shareable,
             r.lastBlockTest);
-    } else if (allocated == 1) {
+    } else if (allocated == 1) { // request denied due to availability
         blockedRequests.push_back(data);
         log.logReqDenied(
             shclk, data, r.desc[data.resi].shareable);
-    } else if (allocated == 2) {
+    } else if (allocated == 2) { // request could cause deadlock, denied
         blockedRequests.push_back(data);
         log.logReqDeadlock(
             shclk, data, 
@@ -98,12 +114,17 @@ void handleReq(clk* shclk, resman& r, Log& log, Data data,
             r.lastBlockTest);
     }
     if (reqs % 20 == 19) {
+        // print the resource allocation table every 20 requests
         log.logAlloc(r.desc, r.sysmax);
     }
 }
 
 void handleRel(clk* shclk, resman& r, Log& log, Data data,
         std::list<Data>& blockedRequests) {
+    // processes a message from a child that it wants to release a resource
+    // by acknowledging with a 0-length message, telling the resource manager
+    // to release the resource, and checking if any blocked requests can get
+    // processed
     r.release(data.pid, data.resi, data.resamount);
     msgsend(1, data.pid+2);
     log.logRel(shclk, data, blockedRequests.size());
@@ -112,6 +133,10 @@ void handleRel(clk* shclk, resman& r, Log& log, Data data,
 
 void handleTerm(clk* shclk, resman& r, Log& log, Data data,
         std::list<Data>& blockedRequests, int& conc_count) {
+    // processes a message from a child that it is terminating by releasing
+    // all resources allocated to the child, waiting on the child process
+    // to terminate, releasing the PID form the bitmap, and checking if any
+    // blocked requests can get processed
     for (int i : range(20)) {
         r.release(data.pid, i, r.desc[i].alloc[data.pid]);
     }
@@ -140,17 +165,23 @@ void main_loop(std::string runpath, Log& log) {
     std::list<Data> blockedRequests;
 
     while (!earlyquit) {
+        // if 40 processes have been started and all have terminated, quit
         if (max_count >= 40 && conc_count == 0) earlyquit = true;
+        // if it is time to create a new process and 40 have not been
+        // created yet, attempt to do so
         if (shclk->tofloat() >= nextSpawnTime && max_count < 40) {
+            // check if there is an available PID (to cap running procs to 18)
             r.findandsetpid(pid);
             if (pid >= 0) {
+                // yes, log the result and start the child process
                 log.logNewPID(shclk, pid, ++max_count);
                 forkexec(runpath + "user " + std::to_string(pid), conc_count);
                 nextSpawnTime = shclk->nextrand(spawnConst);
             }
         }
-        buf->mtype = 1; // set explicitly
+        buf->mtype = 1; // messages to oss will only be on mtype=1
         if (msgreceivenw(1, buf)) {
+            // process message accordingly
             if (buf->data.status == CLAIM) {
                 handleClaim(shclk, r, log, buf->data);
             } else if (buf->data.status == REQ) {
@@ -161,11 +192,15 @@ void main_loop(std::string runpath, Log& log) {
                 handleTerm(shclk, r, log, buf->data, blockedRequests, conc_count);
             }
         }
+        // increment the clock a set amount each loop
         shclk->inc(2e5);
     }
-
+    // print termination summary to stdout, as well as the logfile name where
+    // a detailed output of the run can be found
     std::cout << log.logExit(shclk, quittype, max_count) << "\n";
-    std::cout << "For simulation details, please see " << log.logfile.name << "\n";
+    std::cout << "For simulation details, please see " << log.logfile.name;
+    std::cout << "\n";
+    // close and remove ipc
     cleanup(shclk, r, conc_count);
 }
 
