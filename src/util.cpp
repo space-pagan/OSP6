@@ -48,6 +48,20 @@ const int* range::end() {
     return &(this->data[this->size]);
 }
 
+roullette::roullette(int s) {
+    this->size = s;
+    for (int i : range(s))
+        this->sum.push_back(
+            (i > 0 ? this->sum[i-1] : 0) + (1.0f / (i + 1.0f)));
+}
+
+int roullette::rand() {
+    int i = 0;
+    float r = (float)std::rand() / ((float)RAND_MAX / this->sum.back());
+    for (i = 0; i < this->size && r > this->sum[i]; i++);
+    return i;
+}
+
 // provides a string representation of the Unix Epoch Second (monotonically +)
 // which is useful for ensuring a name is never reused
 std::string epochstr() {

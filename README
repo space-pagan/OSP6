@@ -1,5 +1,5 @@
 Author: Zoya Samsonov
-Date:   November 5, 2020
+Date:   December 01, 2020
 
 Compilation:
     The Makefile for this project will create the following:
@@ -14,10 +14,10 @@ Running the program:
         oss can be run with any runpath. bin/oss is a valid directive
         oss [OPTIONS]
 
-        -h  : Display a MAN-Page style help message
+        -h      : Display a MAN-Page style help message
 
-        -v  : Set logging to verbose mode
-
+        -m x    : Specify user memory selection method.
+                    0 = random address, 1 = weighted address.
 
 Version Control:
     This project's version control has been managed under git. For a log of
