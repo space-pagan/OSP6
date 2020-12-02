@@ -6,4 +6,6 @@ obj/
 *_debug*
 *.test
 
-cleanrun
+tests/testlist
+tests/testframe
+tests/testroullette
