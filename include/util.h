@@ -52,17 +52,17 @@ struct ListNode {
         if (this->next) this->next->prev = this->prev;
     }
 
-    void insert_before(ListNode<T>* src) {
-        if (this->prev) this->prev->next = src;
-        src->prev = this->prev;
-        src->next = this;
-        this->prev = src;
+    void insert_before(ListNode<T>* dest) {
+        if (dest->prev) dest->prev->next = this;
+        this->prev = dest->prev;
+        this->next = dest;
+        dest->prev = this;
     }
 
     void move(ListNode<T>* dest) {
         if (this != dest) {
             this->remove_ref();
-            dest->insert_before(this);
+            this->insert_before(dest);
         }
     }
 
@@ -91,54 +91,47 @@ struct list {
     list() {}
 
     ListNode<T>* front() {
-        return f;
+        return this->f;
     }
 
     ListNode<T>* back() {
-        if (f) return f->back();
+        if (this->f) return this->f->back();
         return NULL;
     }
 
     void move(ListNode<T>* dest, ListNode<T>* src) {
         if (src && dest) {
             src->move(dest);
-            f = src->front();
-        }
-    }
-
-    void insert(ListNode<T>* dest, ListNode<T>* src) {
-        if (src && dest) {
-            dest->insert_before(src);
+            this->f = src->front();
         }
     }
 
     void insert(ListNode<T>* dest, T v) {
-        if (dest) {
-            dest->insert_before(new ListNode<T>(v));
-        }
+        (new ListNode<T>(v))->insert_before(dest);
+        this->f = dest->front();
     }
 
     void erase(ListNode<T>* target) {
-        ListNode<T>* ptr = f;
+        ListNode<T>* ptr = this->f;
         while (ptr && ptr != target) ptr = ptr->next;
-        if (ptr) f = ptr->erase();
+        if (ptr) this->f = ptr->erase();
     }
 
     ListNode<T>* find(T v) {
-        ListNode<T>* ptr = f;
+        ListNode<T>* ptr = this->f;
         while (ptr && ptr->val != v) ptr = ptr->next;
         return ptr;
     }
 
     void push_back(T v) {
-        if (f && f->init) f->push_back(v);
-        else f = new ListNode<T>(v);
+        if (this->f && this->f->init) this->f->push_back(v);
+        else this->f = new ListNode<T>(v);
     }
 
     void push(T v) {
-        if (f && f->init) f->push(v);
-        else f = new ListNode<T>(v);
-        f = f->front();
+        if (this->f && this->f->init) this->f->push(v);
+        else this->f = new ListNode<T>(v);
+        this->f = this->f->front();
     }
 };
 

@@ -21,4 +21,8 @@ int main(int argc, char** argv) {
     l.move(l.front(), l.find(1));
 
     printlist(&l);
+
+    l.erase(l.find(3));
+
+    printlist(&l);
 }
