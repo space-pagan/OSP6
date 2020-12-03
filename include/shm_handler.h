@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-enum Status { CLAIM, TERM, REQ, REL };
+enum Status { REQ_READ, REQ_WRITE, TERM };
 
 typedef struct {
     int pid;

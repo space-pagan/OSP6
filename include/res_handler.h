@@ -23,7 +23,6 @@ struct resman {
     Descriptor* desc;
     bool started[18];
     int* sysmax;
-    std::bitset<18> bitmap;
     std::vector<int> lastBlockTest;
 
     resman(int& currID);
@@ -33,9 +32,6 @@ struct resman {
     int allocate(int PID, int descID, int instances);
     void release(int PID, int descID);
     void release(int PID, int descID, int instances);
-    int findfirstunset();
-    void findandsetpid(int& pid);
-    void unsetpid(int pid);
 };
 
 #endif

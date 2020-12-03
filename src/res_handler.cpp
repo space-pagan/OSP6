@@ -173,23 +173,3 @@ void resman::release(int PID, int descID, int instances) {
         this->desc[descID].avail += instances;
     }
 }
-
-int resman::findfirstunset() {
-    // returns the first unset bit in a bitmap (used for PID)
-    for (int i : range(18)) if (!this->bitmap[i]) return i;
-    return -1;
-}
-
-void resman::findandsetpid(int& pid) {
-    // finds the first unset bit in a bitmap, sets it, and returns the index
-    if ((pid = findfirstunset()) != -1) {
-        this->bitmap.set(pid);
-    }
-}
-
-void resman::unsetpid(int pid) {
-    // unsets a bit in a bitmap (releases PID back into the pool)
-    this->bitmap.reset(pid);
-    this->started[pid] = false;
-}
-

@@ -17,8 +17,6 @@
 #include "util.h"                //range()
 #include "child_handler.h"       //function defs for self
 
-std::set<pid_t> PIDS;
-
 char** makeargv(std::string line, int& size) {
     // tokenizes an std::string on whitespace and converts it to char**
     // with the last element being a nullptr. Saves the column size to 'size'
@@ -57,14 +55,32 @@ void freeargv(char** argv, int size) {
     delete[] argv;
 }
 
-int forkexec(std::string cmd, int& pr_count) {
-    // alias if cmd is a std::string instead of a char*
-    return forkexec(cmd.c_str(), pr_count);
+int childman::findfirstunset() {
+    // returns the first unset bit in a bitmap (used for PID)
+    for (int i : range(18)) if (!this->bitmap[i]) return i;
+    return -1;
 }
 
-int forkexec(const char* cmd, int& pr_count) {
+int childman::findandsetpid() {
+    // finds the first unset bit in a bitmap, sets it, and returns the index
+    int pid;
+    if ((pid = findfirstunset()) != -1) {
+        this->bitmap.set(pid);
+    }
+    return pid;
+}
+
+void childman::unsetpid(int pid) {
+    // unsets a bit in a bitmap (releases PID back into the pool)
+    this->bitmap.reset(pid);
+}
+
+int childman::forkexec(std::string cmd) {
     // fork a child process, equivalent to running cmd in the shell
-    // and increment external pr_count. Return PID of forked child
+    // Return PID of forked child
+    int virt_pid = this->findandsetpid();
+    if (virt_pid == -1) return -1;
+    cmd += " " + std::to_string(virt_pid);
     int child_argc;
     // convert cmd to argv format
     char** child_argv = makeargv(cmd, child_argc);
@@ -82,78 +98,59 @@ int forkexec(const char* cmd, int& pr_count) {
             }
             return 0; // not reachable but gcc complains if its not there
         default:
-            // fork() succeeded. Add child pid to list in case we need to
-            // terminate children with killallchildren()
-            // Update external pr_count and deallocate the argv array.
-            PIDS.insert(child_pid);
-            pr_count++;
+            // fork() succeeded. Map real PID to virtual PID, free memory used
+            // for argv, and return the virtual PID of the child.
+            this->PIDS[child_pid] = virt_pid;
             freeargv(child_argv, child_argc);
-            return child_pid; // return the PID of the created child
+            return virt_pid; // return the PID of the created child
     }
 }
 
-int updatechildcount(int& pr_count) {
-    // Does not wait for children to exit, only checks if any have exited
-    // since last wait() call. If yes, decrement external pr_count
-    int wstatus;
-    pid_t pid;
-    switch((pid = waitpid(-1, &wstatus, WNOHANG))) {
-        case -1:
-            // waitpid() failed. Print the error and terminate.
-            perrandquit();
-            return -1; // unreachable but gcc complains if its not there
-        case 0:
-            // no children have terminated. return and do not wait.
-            return 0;
-        default:
-            // a child has terminated. Remove it from PIDS and decrement
-            // external pr_count, before returning the pid of the exited child
-            PIDS.erase(pid);
-            pr_count--;
-            return pid;
-    }
+int childman::updatechildcount() {
+    return this->waitforchildpid(-1, WNOHANG);
 }
 
-int waitforanychild(int& pr_count) {
-    // waits for a child to exit, and decrements pr_count when one has.
-    int wstatus;
-    pid_t pid;
-    switch((pid = waitpid(-1, &wstatus, 0))) {
-        case -1:
-            // waitpid() failed. Print the error and terminate.
-            perrandquit();
-            return -1; // unreachable but gcc complains if its not there
-        default:
-            // a child has terminated. Remove it from PIDS and decrement
-            // external pr_count, before returning the pid of the exited child
-            PIDS.erase(pid);
-            pr_count--;
-            return pid;
-    }
+int childman::waitforanychild() {
+    return this->waitforchildpid(-1, 0);
 }
 
-int waitforchildpid(int pid, int& pr_count) {
+int childman::waitforchildpid(int pid) {
+    return this->waitforchildpid(pid, 0);
+}
+
+int childman::waitforchildpid(int pid, int status) {
     // waits for a child with PID to exit and decrements pr_count
     int wstatus;
     pid_t pid_exit;
-    switch((pid_exit = waitpid(pid, &wstatus, 0))) {
+    switch((pid_exit = waitpid(pid, &wstatus, status))) {
         case -1:
             // waitpid() failed. Print the error and terminate.
             perrandquit();
             return -1;
+        case 0:
+            if (status == WNOHANG)
+                return -1;
+            return 0;
         default:
             // the child terminated. Remove it from PIDS and decrement
             // external pr_count, before returning the pid of the exited child 
-            PIDS.erase(pid);
-            pr_count--;
-            return pid;
+            this->unsetpid(this->PIDS[pid_exit]);
+            this->PIDS.erase(pid_exit);
+            return pid_exit;
     }
 }
 
-void killallchildren() {
+void childman::killallchildren() {
     // sends SIGTERM to any PID in the PIDS vector
-    for (int p : PIDS) 
-        if (kill(p, SIGINT) == -1) 
+    for (auto p : this->PIDS) 
+        if (kill(p.first, SIGINT) == -1) 
             perrandquit();
 }
+
+void childman::cleanup() {
+    this->killallchildren();
+    while (this->PIDS.size()) 
+        this->waitforanychild();
+}
+
 

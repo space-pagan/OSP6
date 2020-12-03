@@ -16,7 +16,7 @@ Running the program:
 
         -h      : Display a MAN-Page style help message
 
-        -m x    : Specify user memory selection method.
+        -m x    : Specify user memory selection method. Defaults to 0.
                     0 = random address, 1 = weighted address.
 
 Version Control:

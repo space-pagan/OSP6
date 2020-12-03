@@ -11,10 +11,10 @@ void printhelp(std::string progname) {
     // MAN format as closely as possible.
     std::cout << "\nUsage: ";
     std::cout << progname << " [OPTION]...\n";
-    std::cout << "Creates children and simulates resource management and";
-    std::cout << " deadlock avoidance algorithms.\n";
+    std::cout << "Creates children and simulates memory requests and";
+    std::cout << " LRU paging algorithm.\n";
 
-    std::cout << "\n  -v        \tSets logging to verbose mode.";
-
-    std::cout << "\n  -h        \tPrints this message\n\n";
+    std::cout << "\n  -h        \tPrints this message";
+    std::cout << "\n  -m x      \tSpecify user memory selection method. Defaults to 0.";
+    std::cout << "\n            \t    0 = random address, 1 = weighted address.\n\n";
 }
