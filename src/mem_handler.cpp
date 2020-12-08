@@ -7,40 +7,58 @@
 #include "util.h"
 #include "mem_handler.h"
 
-int memman::in_frame(int proc, int page) {
+int memman::in_frame(int proc, int page, bool ignore_waiting = false) {
     for (auto i = 0UL; i < this->frames.size(); i++)
-        if (this->frames[i].page == page && this->frames[i].proc == proc)
+        // only return the frame if the proc and page match, AND
+        // either waiting_io is false or ignore_waiting is true
+        if (this->frames[i].page == page && 
+                this->frames[i].proc == proc && 
+                (!this->frames[i].waiting_io || ignore_waiting))
             return i;
     return -1;
 }
 
 int memman::check_frame(int proc, int page, int& frameout) {
-    frameout = in_frame(proc, page);
-    int out = 0;
+    frameout = in_frame(proc, page, true);
+    int out = 1;
     
-    if (frameout == -1) {
-        out = -1;
-        // check if any empty frames
-        frameout = in_frame(-1, -1);
-        if (frameout == -1) {
-            // no, run LRU
-            frameout = this->lru_order.back()->val;
+    if (frameout == -1) { // page is not loaded
+        out = 0;
+        frameout = in_frame(-1, -1); // do not ignore waiting_io flag
+        if (frameout == -1) { // no empty frames available
+            frameout = this->lru_order.back()->val; // run LRU
         }
+        // page is not loaded so frame will be waiting for IO
+        // this ensures that future check_frame() calls will not pick
+        // this frame
+        this->frames[frameout].waiting_io = true;
     } 
-    this->lru_order.move(lru_order.front(), this->frames[frameout].last_used_ref);
+    // update frame access order
+    this->lru_order.move(
+            lru_order.front(), this->frames[frameout].last_used_ref);
     return out;
+}
+
+void memman::set_dirty(int framenum, int rw) {
+    this->frames[framenum].dirty |= rw;
+}
+
+int memman::is_dirty(int framenum) {
+    return this->frames[framenum].dirty;
 }
 
 void memman::load_frame(int framenum, int proc, int page, int rw) {
     this->frames[framenum].proc = proc;
     this->frames[framenum].page = page;
-    this->frames[framenum].dirty |= rw;
+    this->set_dirty(framenum, rw);
+    this->frames[framenum].waiting_io = false;
 }
 
 void memman::flush_frame(frame &f) {
     f.proc = -1;
     f.page = -1;
-    f.dirty = -1;
+    f.dirty = false;
+    f.waiting_io = false;
     this->lru_order.move(this->lru_order.front(), f.last_used_ref);
 }
 

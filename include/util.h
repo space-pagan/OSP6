@@ -69,6 +69,7 @@ struct ListNode {
     ListNode<T>* erase() {
         this->remove_ref();
         ListNode<T>* f = this->front();
+        if (f == this) f = this->next;
         delete this;
         return f;
     }
@@ -87,6 +88,7 @@ struct ListNode {
 template <typename T>
 struct list {
     ListNode<T>* f = NULL;
+    int _size = 0;
 
     list() {}
 
@@ -109,12 +111,16 @@ struct list {
     void insert(ListNode<T>* dest, T v) {
         (new ListNode<T>(v))->insert_before(dest);
         this->f = dest->front();
+        this->_size++;
     }
 
     void erase(ListNode<T>* target) {
         ListNode<T>* ptr = this->f;
         while (ptr && ptr != target) ptr = ptr->next;
-        if (ptr) this->f = ptr->erase();
+        if (ptr) {
+            this->f = ptr->erase();
+            this->_size++;
+        }
     }
 
     ListNode<T>* find(T v) {
@@ -126,12 +132,18 @@ struct list {
     void push_back(T v) {
         if (this->f && this->f->init) this->f->push_back(v);
         else this->f = new ListNode<T>(v);
+        this->_size++;
     }
 
     void push(T v) {
         if (this->f && this->f->init) this->f->push(v);
         else this->f = new ListNode<T>(v);
         this->f = this->f->front();
+        this->_size++;
+    }
+
+    int size() {
+        return this->_size;
     }
 };
 

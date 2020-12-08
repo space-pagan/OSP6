@@ -77,7 +77,8 @@ long clk::tonano() {
 std::string ClockPadding(clk* shclk) {
     // returns a string containing only spaces, equal in length to the 
     // length of the current-time pretty-print string, plus 2
-    std::string out = "  ";
-    for (int i : range(shclk->tostring().size())) out += " ";
-    return out;
+    int size = shclk->tostring().size() + 2;
+    char c[size];
+    memset(c, ' ', size);
+    return std::string(c);
 }

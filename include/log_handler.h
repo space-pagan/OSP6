@@ -8,25 +8,15 @@
 
 struct Log {
     File logfile;
-    int linecount;
+    int linecount = 0;
     int maxlinecount;
     bool verbose;
     
     Log(std::string logpath, int max, bool verb);
-    Log(const Log& old);
     void logline(std::string msg, bool force=false);
     void logNewPID(clk* shclk, int pid, int max_count);
-    void logMaxClaim(clk* shclk, Data d);
-    void logDeadlockTest(clk* shclk, bool issafe, std::vector<int>& blocked);
-    void logReqGranted(clk* shclk, Data d, bool shareable, std::vector<int>& blocked);
-    void logReqDenied(clk* shclk, Data d, bool shareable);
-    void logReqDeadlock(clk* shclk, Data d, bool shareable, std::vector<int>& blocked);
-    void logRel(clk* shclk, Data d, int blockSize);
-    void logUnblockCheck(clk* shclk, Data d, int blockSize);
-    void logUnblock(clk* shclk, Data d);
-    void logTerm(clk* shclk, Data d, int blockSize);
+    void logTerm(clk* shclk, Data d, int remain);
     std::string logExit(clk* shclk, int quittype, int max_count);
-    void logAlloc(Descriptor* desc, int* sysmax);
 };
 
 

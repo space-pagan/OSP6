@@ -7,11 +7,9 @@ enum Status { REQ_READ, REQ_WRITE, TERM };
 
 typedef struct {
     int pid;
+    int realpid;
+    int address;
     Status status;
-    int resarray[20];
-    int resi;
-    int resamount;
-    pid_t realpid;
 }Data;
 
 struct pcbmsgbuf {
