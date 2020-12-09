@@ -1,5 +1,6 @@
 #include <vector>
 #include <map>
+#include "log_handler.h"
 #include "util.h"
 
 struct request {
@@ -30,18 +31,20 @@ struct request {
 };
 
 struct frame {
+    int num;
     int proc = -1;
     int page = -1;
     bool dirty = false;
     bool waiting_io = false;
     ListNode<int>* last_used_ref;
 
-    frame(ListNode<int>* lur) :
+    frame(int num, ListNode<int>* lur) :
+        num(num),
         last_used_ref{lur}
     {}
 
-    frame(int pr, int pg, ListNode<int>* lur) :
-        proc(pr), page(pg), last_used_ref{lur}
+    frame(int num, int pr, int pg, ListNode<int>* lur) :
+        num(num), proc(pr), page(pg), last_used_ref{lur}
     {}
 };
 
@@ -49,12 +52,7 @@ struct memman {
     std::vector<frame> frames;
     list<int> lru_order;
 
-    memman() {
-        for (int i : range(256)) {
-            lru_order.push(i);
-            frames.emplace_back(lru_order.front());
-        }
-    }
+    memman();
 
     int in_frame(int proc, int page, bool ignore_waiting);
     void set_dirty(int framenum, int rw);
@@ -64,4 +62,5 @@ struct memman {
     void flush_frame(frame &f);
     void flush_frame(int framenum);
     void flush_all(int pid);
+    void log_mmap(clk* shclk, Log& log, int cur_count, int max_count);
 };

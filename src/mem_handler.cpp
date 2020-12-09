@@ -7,6 +7,13 @@
 #include "util.h"
 #include "mem_handler.h"
 
+memman::memman() {
+    for (int i : range(256)) {
+        lru_order.push(i);
+        frames.emplace_back(i, lru_order.front());
+    }
+}
+
 int memman::in_frame(int proc, int page, bool ignore_waiting = false) {
     for (auto i = 0UL; i < this->frames.size(); i++)
         // only return the frame if the proc and page match, AND
@@ -54,7 +61,7 @@ void memman::load_frame(int framenum, int proc, int page, int rw) {
     this->frames[framenum].waiting_io = false;
 }
 
-void memman::flush_frame(frame &f) {
+void memman::flush_frame(frame& f) {
     f.proc = -1;
     f.page = -1;
     f.dirty = false;
@@ -67,7 +74,72 @@ void memman::flush_frame(int framenum) {
 }
 
 void memman::flush_all(int pid) {
-    for (frame f : this->frames) {
+    for (frame& f : this->frames) {
         if (f.proc == pid) this->flush_frame(f);
+    }
+}
+
+void memman::log_mmap(clk* shclk, Log& log, int cur_count, int max_count) {
+    char buf[256];
+    char* ptr = buf;
+    memset(buf, '\0', 256); // just to be safe
+
+    // Header
+    ptr += sprintf(ptr, "    ");
+    for (int i : range(16)) {
+        ptr += sprintf(ptr, "%x ", i);
+    }
+    ptr += sprintf(ptr, "    KEY");
+    log.logline(buf);
+    memset(buf, '\0', ptr-buf+1);
+    ptr = buf;
+
+    // Body
+    for (int row : range(16)) {
+        ptr += sprintf(ptr, "0x%x ", row);
+        for (int col : range(16)) {
+            frame f = this->frames[16*row + col];
+            if (f.proc == -1 && f.page == -1) {
+                ptr += sprintf(ptr, f.waiting_io ? "+ " : ". ");
+            } else {
+                if (f.dirty) ptr += sprintf(ptr, f.waiting_io ? "$ " : "! ");
+                else ptr += sprintf(ptr, f.waiting_io ? "& " : "* ");
+            }
+        }
+        if (row == 0) {
+            ptr += sprintf(ptr, 
+                "    .    empty");
+        } else if (row == 1) {
+            ptr += sprintf(ptr,
+                "    +    empty,  ");
+            ptr += sprintf(ptr,
+                 "loading from disk");
+        } else if (row == 2) {
+            ptr += sprintf(ptr,
+                "    *    loaded, ");
+            ptr += sprintf(ptr,
+                 "clean");
+        } else if (row == 3) {
+            ptr += sprintf(ptr,
+                "    &    loaded, clean, loading new frame from disk");
+        } else if (row == 4) {
+            ptr += sprintf(ptr,
+                "    !    loaded, dirty");
+        } else if (row == 5) {
+            ptr += sprintf(ptr,
+                "    $    loaded, dirty, swapping new frame from disk");
+        } else if (row == 7) {
+            ptr += sprintf(ptr,
+                "    t = %s", shclk->tostring().c_str());
+        } else if (row == 8) {
+            ptr += sprintf(ptr,
+                "    Current Processes: %2d", cur_count);
+        } else if (row == 9) {
+            ptr += sprintf(ptr,
+                "    Total Processes:  %3d", max_count);
+        }
+        log.logline(buf);
+        memset(buf, '\0', ptr-buf+1);
+        ptr = buf;
     }
 }

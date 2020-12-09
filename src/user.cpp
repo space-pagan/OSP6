@@ -31,8 +31,8 @@ int main(int argc, char **argv) {
     // clk* shclk = (clk*)shmlookup(0);
     // constant parameters
     const int msgqid = 1;
-    const int readChance = 55;
-    const int termMod = 900 + rand() % 200;
+    const int readChance = 70;
+    const int termMod = 800;
     const int termChance = 100;
     
     // create a message buffer, and fill with default data

@@ -155,16 +155,19 @@ void main_loop(std::string runpath, Log& log, std::string  m) {
     memman mm;
     childman cm;
     pcbmsgbuf* buf = new pcbmsgbuf;
+    int req_count = 0;
+    long last_draw = 0;
 
     list<request> io_requests;
 
     while (!earlyquit) {
-        // if 40 processes have been started and all have terminated, quit
+        // if 100 processes have been started and all have terminated, quit
         if (max_count >= 100 && cm.PIDS.size() == 0) earlyquit = true;
-        // if it is time to create a new process and 40 have not been
-        // created yet, attempt to do so
+        // if it is time to create a new process and 100 have not been
+        // created yet, attempt to create a new process
         if (shclk->tofloat() >= nextSpawnTime && max_count < 100) {
             // attempt to fork a child, if concurrency limit allows it
+            // forkexec returns -1 on error and virt_pid on success
             int pid = cm.forkexec(runpath + "user " + m );
             if (pid >= 0) {
                 // fork succeeded, log
@@ -173,20 +176,32 @@ void main_loop(std::string runpath, Log& log, std::string  m) {
             }
         }
         buf->mtype = 1; // messages to oss will only be on mtype=1
+        // check if message in queue but do not block
         if (msgreceivenw(1, buf)) {
             // process message accordingly
             if (buf->data.status == REQ_READ || buf->data.status == REQ_WRITE){
+                req_count++;
                 handleReq(shclk, mm, log, buf->data, io_requests);
             } else if (buf->data.status == TERM) {
                 handleTerm(shclk, cm, mm, log, buf->data);
+                // draw memory map every time a process terminates
+                mm.log_mmap(shclk, log, cm.PIDS.size(), max_count);
             } else {
                 customerrorquit("P" + std::to_string(buf->data.pid) + 
                         " provided unknown status code '" + 
                         std::to_string(buf->data.status) + "'");
             }
         }
+        // process requests waiting on I/O
         if (io_requests.size())
             handleWaiting(shclk, mm, log, io_requests);
+
+        // draw memoy map every ~1 seconds
+        if (shclk->tonano() - last_draw > 1e9) {
+            mm.log_mmap(shclk, log, cm.PIDS.size(), max_count);
+            last_draw = shclk->tonano();
+        }
+
         // increment the clock a set amount each loop
         shclk->inc(4e5);
     }
