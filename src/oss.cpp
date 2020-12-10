@@ -66,7 +66,8 @@ void testopts(int argc, char** argv, std::string pref, int optind,
 }
 
 void handleReq(clk* shclk, memman& mm, Log& log, Data data, 
-        list<request>& io_req) {
+        list<request>& io_req, int& pfault_delta, int& pfault_count,
+        long& speed_delta, long& speed_count) {
     int page = data.address >> 10;
     log.logline(shclk->tostring() + ": P" + std::to_string(data.pid) + 
             " requested " + (data.status == REQ_READ ? 
@@ -90,6 +91,11 @@ void handleReq(clk* shclk, memman& mm, Log& log, Data data,
         request r = request(
             data.pid, page, framenum, data.status, shclk->tonano(), 14e6
         );
+        // increment page fault counters
+        pfault_count++;
+        pfault_delta++;
+        speed_delta += 14e6;
+        speed_count += 14e6;
         log.logline(shclk->tostring() + ": Address " +
                 std::to_string(data.address) + " is not in a frame, " +
                 "pagefault");
@@ -99,6 +105,8 @@ void handleReq(clk* shclk, memman& mm, Log& log, Data data,
                 std::to_string(r.page));
         if (mm.is_dirty(framenum)) {
             r.req_wait += 14e6;
+            speed_delta += 14e6;
+            speed_count += 14e6;
             log.logline(shclk->tostring() + ": Dirty bit of frame " +
                     std::to_string(r.frame) + " set, adding additional " +
                     "wait time to request");
@@ -155,8 +163,15 @@ void main_loop(std::string runpath, Log& log, std::string  m) {
     memman mm;
     childman cm;
     pcbmsgbuf* buf = new pcbmsgbuf;
-    int req_count = 0;
+
+    // statistics variables
     long last_draw = 0;
+    int req_count = 0;
+    int req_delta = 0;
+    int pfault_count = 0;
+    int pfault_delta = 0;
+    long speed_delta = 0;
+    long speed_count = 0;
 
     list<request> io_requests;
 
@@ -180,12 +195,21 @@ void main_loop(std::string runpath, Log& log, std::string  m) {
         if (msgreceivenw(1, buf)) {
             // process message accordingly
             if (buf->data.status == REQ_READ || buf->data.status == REQ_WRITE){
+                req_delta++;
                 req_count++;
-                handleReq(shclk, mm, log, buf->data, io_requests);
+                handleReq(shclk, mm, log, buf->data, io_requests, 
+                        pfault_delta, pfault_count, speed_delta, speed_count);
             } else if (buf->data.status == TERM) {
                 handleTerm(shclk, cm, mm, log, buf->data);
                 // draw memory map every time a process terminates
-                mm.log_mmap(shclk, log, cm.PIDS.size(), max_count);
+                mm.log_mmap(shclk, log, cm.PIDS.size(), max_count, 
+                        (float)req_delta / ((shclk->tonano() - last_draw)/1e9),
+                        (float)pfault_delta / req_delta,
+                        speed_delta / req_delta);
+                last_draw = shclk->tonano();
+                req_delta = 0;
+                pfault_delta = 0;
+                speed_delta = 0;
             } else {
                 customerrorquit("P" + std::to_string(buf->data.pid) + 
                         " provided unknown status code '" + 
@@ -197,9 +221,15 @@ void main_loop(std::string runpath, Log& log, std::string  m) {
             handleWaiting(shclk, mm, log, io_requests);
 
         // draw memoy map every ~1 seconds
-        if (shclk->tonano() - last_draw > 1e9) {
-            mm.log_mmap(shclk, log, cm.PIDS.size(), max_count);
+        if (shclk->tonano() % (long)1e9 == 1e9-1 && req_delta) {
+            mm.log_mmap(shclk, log, cm.PIDS.size(), max_count,
+                    (float)req_delta / ((shclk->tonano() - last_draw)/1e9),
+                    (float)pfault_delta / req_delta,
+                    speed_delta / req_delta);
             last_draw = shclk->tonano();
+            req_delta = 0;
+            pfault_delta = 0;
+            speed_delta = 0;
         }
 
         // increment the clock a set amount each loop
@@ -207,7 +237,20 @@ void main_loop(std::string runpath, Log& log, std::string  m) {
     }
     // print termination summary to stdout, as well as the logfile name where
     // a detailed output of the run can be found
-    std::cout << log.logExit(shclk, quittype, max_count - cm.PIDS.size());
+    std::cout << log.logExit(shclk, quittype, max_count - cm.PIDS.size()) << "\n";
+    std::string out = "Average Memory IO / sec: " + std::to_string(
+            (float)req_count / shclk->tofloat());
+    log.logline(out);
+    std::cout << out << "\n";
+    out = "Average pagefaults / Memory IO: " + std::to_string(
+            (float)pfault_count / req_count);
+    log.logline(out);
+    std::cout << out << "\n";
+    out = "Average memory access time: " + std::to_string(
+            speed_count / req_count) + "ns";
+    log.logline(out);
+    std::cout << out << "\n";
+
     std::cout << "\nFor simulation details, please see " << log.logfile.name;
     std::cout << "\n";
     // close and remove ipc

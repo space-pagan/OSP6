@@ -62,5 +62,6 @@ struct memman {
     void flush_frame(frame &f);
     void flush_frame(int framenum);
     void flush_all(int pid);
-    void log_mmap(clk* shclk, Log& log, int cur_count, int max_count);
+    void log_mmap(clk* shclk, Log& log, int cur_count, int max_count, 
+            float mps, float pfpio, long avgspeed);
 };

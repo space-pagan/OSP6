@@ -79,7 +79,8 @@ void memman::flush_all(int pid) {
     }
 }
 
-void memman::log_mmap(clk* shclk, Log& log, int cur_count, int max_count) {
+void memman::log_mmap(clk* shclk, Log& log, int cur_count, 
+        int max_count, float mps, float pfpio, long avgspeed) {
     char buf[256];
     char* ptr = buf;
     memset(buf, '\0', 256); // just to be safe
@@ -137,6 +138,15 @@ void memman::log_mmap(clk* shclk, Log& log, int cur_count, int max_count) {
         } else if (row == 9) {
             ptr += sprintf(ptr,
                 "    Total Processes:  %3d", max_count);
+        } else if (row == 11) {
+            ptr += sprintf(ptr,
+                "    Memory IO/sec: %6.1f", mps);
+        } else if (row == 12) {
+            ptr += sprintf(ptr,
+                "    Page faults/Memory IO: %f", pfpio);
+        } else if (row == 13) {
+            ptr += sprintf(ptr,
+                "    Average access time: %8ldns", avgspeed);
         }
         log.logline(buf);
         memset(buf, '\0', ptr-buf+1);
